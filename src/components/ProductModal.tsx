@@ -43,26 +43,25 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   if (!product) return null;
 
   const handleShare = async () => {
+    const productUrl = `${window.location.origin}/?product=${encodeURIComponent(product.id)}`;
     if (navigator.share) {
       try {
         await navigator.share({
           title: product.NAME,
           text: `Check out this deal on SAINIWALAA Deals: ${product.NAME} at ${product.formattedPrice}`,
-          url: product.LINK || window.location.href
+          url: productUrl
         });
         return;
       } catch {
         // Fallback to copy
       }
     }
-    if (product.LINK) {
-      try {
-        await navigator.clipboard.writeText(product.LINK);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } catch {
-        // clipboard unavailable
-      }
+    try {
+      await navigator.clipboard.writeText(productUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard unavailable
     }
   };
 

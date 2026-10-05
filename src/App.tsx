@@ -9,6 +9,13 @@ import {
   trackWishlistRemove,
   trackCategorySelect
 } from './services/analytics';
+import {
+  parseUrlState,
+  buildQueryString,
+  findProductById,
+  saveBrowsingState,
+  getSavedBrowsingState
+} from './services/urlState';
 import { Header } from './components/Header';
 import { HeroSlider } from './components/HeroSlider';
 import { MarketplaceTabs } from './components/MarketplaceTabs';
@@ -35,6 +42,14 @@ import {
 } from 'lucide-react';
 
 export const App: React.FC = () => {
+  // 1. Initial URL & Browsing State Parsing
+  const initialUrlState = useMemo(() => parseUrlState(), []);
+  const savedState = useMemo(() => {
+    // If the user arrived with specific query parameters, URL takes priority
+    if (initialUrlState.hasQueryParams) return null;
+    return getSavedBrowsingState();
+  }, [initialUrlState.hasQueryParams]);
+
   // Always initialize with cached/embedded data for zero-delay instant rendering
   const [data, setData] = useState<ApiResponse>(() => getCachedDeals());
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -44,13 +59,40 @@ export const App: React.FC = () => {
   });
   const [networkError, setNetworkError] = useState<string | null>(null);
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [selectedMarketplace, setSelectedMarketplace] = useState<Marketplace | 'All'>('All');
-  const [selectedCollection, setSelectedCollection] = useState<CollectionFilter>('ALL');
+  // Synchronized state variables
+  const [searchQuery, setSearchQuery] = useState<string>(() => {
+    if (initialUrlState.search) return initialUrlState.search;
+    return savedState?.search || '';
+  });
+
+  const [selectedCategory, setSelectedCategory] = useState<string>(() => {
+    if (initialUrlState.category && initialUrlState.category !== 'All') return initialUrlState.category;
+    return savedState?.category || 'All';
+  });
+
+  const [selectedMarketplace, setSelectedMarketplace] = useState<Marketplace | 'All'>(() => {
+    if (initialUrlState.marketplace && initialUrlState.marketplace !== 'All') return initialUrlState.marketplace;
+    return savedState?.marketplace || 'All';
+  });
+
+  const [selectedCollection, setSelectedCollection] = useState<CollectionFilter>(() => {
+    if (initialUrlState.collection && initialUrlState.collection !== 'ALL') return initialUrlState.collection;
+    return savedState?.collection || 'ALL';
+  });
+
   const [sortBy, setSortBy] = useState<'relevance' | 'price_low' | 'price_high' | 'discount' | 'rating'>('relevance');
 
-  const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(null);
+  // Product selection initialized from URL parameter if present
+  const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(() => {
+    if (initialUrlState.productId) {
+      const cached = getCachedDeals();
+      if (cached && cached.products) {
+        return findProductById(cached.products, initialUrlState.productId);
+      }
+    }
+    return null;
+  });
+
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const [wishlistIds, setWishlistIds] = useState<string[]>(() => {
@@ -70,7 +112,10 @@ export const App: React.FC = () => {
     let path = '/';
     let title = 'SAINIWALAA Deals - Amazon, Flipkart & Meesho Best Deals';
 
-    if (searchQuery.trim()) {
+    if (selectedProduct) {
+      path = `/?product=${encodeURIComponent(selectedProduct.id)}`;
+      title = `${selectedProduct.NAME} - SAINIWALAA Deals`;
+    } else if (searchQuery.trim()) {
       path = `/?search=${encodeURIComponent(searchQuery.trim())}`;
       title = `Search: "${searchQuery.trim()}" - SAINIWALAA Deals`;
     } else if (selectedCategory !== 'All') {
@@ -89,7 +134,7 @@ export const App: React.FC = () => {
       trackPageView(title, path);
       document.title = title;
     }
-  }, [searchQuery, selectedCategory, selectedMarketplace, selectedCollection]);
+  }, [selectedProduct, searchQuery, selectedCategory, selectedMarketplace, selectedCollection]);
 
   // GA4 Debounced Search Query Tracking
   useEffect(() => {
@@ -102,6 +147,40 @@ export const App: React.FC = () => {
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  // Save non-product browsing state for returning users
+  useEffect(() => {
+    saveBrowsingState({
+      search: searchQuery,
+      category: selectedCategory,
+      marketplace: selectedMarketplace,
+      collection: selectedCollection
+    });
+  }, [searchQuery, selectedCategory, selectedMarketplace, selectedCollection]);
+
+  // Browser Back / Forward History Listener (popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      const current = parseUrlState();
+
+      // 1. Sync product selection
+      if (current.productId) {
+        const found = findProductById(data.products, current.productId);
+        setSelectedProduct(found);
+      } else {
+        setSelectedProduct(null);
+      }
+
+      // 2. Sync filters
+      setSearchQuery(current.search);
+      setSelectedCategory(current.category);
+      setSelectedMarketplace(current.marketplace);
+      setSelectedCollection(current.collection);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [data.products]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -118,6 +197,15 @@ export const App: React.FC = () => {
       if (res && res.products && res.products.length > 0) {
         setData(res);
         if (force) showToast('Deals refreshed successfully! ✨');
+
+        // Check if URL has a product parameter that needs to be restored
+        const currentUrlState = parseUrlState();
+        if (currentUrlState.productId) {
+          const found = findProductById(res.products, currentUrlState.productId);
+          if (found) {
+            setSelectedProduct(found);
+          }
+        }
       }
     } catch {
       // Non-technical error message without exposing URLs or keys
@@ -131,6 +219,102 @@ export const App: React.FC = () => {
   useEffect(() => {
     loadData(false);
   }, []);
+
+  // Action Handlers with Browser History Synchronization
+  const handleOpenProduct = (product: ProductItem) => {
+    setSelectedProduct(product);
+    const newUrl = buildQueryString({
+      productId: product.id,
+      search: searchQuery,
+      category: selectedCategory,
+      marketplace: selectedMarketplace,
+      collection: selectedCollection
+    });
+    window.history.pushState({ productId: product.id }, '', newUrl);
+  };
+
+  const handleCloseProduct = () => {
+    setSelectedProduct(null);
+    const newUrl = buildQueryString({
+      productId: null,
+      search: searchQuery,
+      category: selectedCategory,
+      marketplace: selectedMarketplace,
+      collection: selectedCollection
+    });
+    window.history.pushState({ productId: null }, '', newUrl);
+  };
+
+  const handleSelectCategory = (cat: string) => {
+    setSelectedCategory(cat);
+    const newUrl = buildQueryString({
+      productId: selectedProduct?.id || null,
+      search: searchQuery,
+      category: cat,
+      marketplace: selectedMarketplace,
+      collection: selectedCollection
+    });
+    window.history.pushState({}, '', newUrl);
+  };
+
+  const handleSelectMarketplace = (m: Marketplace | 'All') => {
+    setSelectedMarketplace(m);
+    const newUrl = buildQueryString({
+      productId: selectedProduct?.id || null,
+      search: searchQuery,
+      category: selectedCategory,
+      marketplace: m,
+      collection: selectedCollection
+    });
+    window.history.pushState({}, '', newUrl);
+  };
+
+  const handleSelectCollection = (col: CollectionFilter) => {
+    setSelectedCollection(col);
+    const newUrl = buildQueryString({
+      productId: selectedProduct?.id || null,
+      search: searchQuery,
+      category: selectedCategory,
+      marketplace: selectedMarketplace,
+      collection: col
+    });
+    window.history.pushState({}, '', newUrl);
+  };
+
+  const handleSearchChange = (q: string) => {
+    setSearchQuery(q);
+    const newUrl = buildQueryString({
+      productId: selectedProduct?.id || null,
+      search: q,
+      category: selectedCategory,
+      marketplace: selectedMarketplace,
+      collection: selectedCollection
+    });
+    // Replace state while typing to avoid creating hundreds of history entries
+    window.history.replaceState({}, '', newUrl);
+  };
+
+  const resetFilters = () => {
+    setSearchQuery('');
+    setSelectedCategory('All');
+    setSelectedMarketplace('All');
+    setSelectedCollection('ALL');
+    setSortBy('relevance');
+
+    const newUrl = buildQueryString({
+      productId: selectedProduct?.id || null,
+      search: '',
+      category: 'All',
+      marketplace: 'All',
+      collection: 'ALL'
+    });
+    window.history.pushState({}, '', newUrl);
+  };
+
+  const handleCategoryDiscoveryClick = (cat: string) => {
+    trackCategorySelect(cat);
+    handleSelectCategory(cat);
+  };
 
   const toggleWishlist = (id: string) => {
     const product = data?.products?.find(p => p.id === id);
@@ -229,19 +413,6 @@ export const App: React.FC = () => {
     return prods.filter(p => wishlistIds.includes(p.id));
   }, [data, wishlistIds]);
 
-  const resetFilters = () => {
-    setSearchQuery('');
-    setSelectedCategory('All');
-    setSelectedMarketplace('All');
-    setSelectedCollection('ALL');
-    setSortBy('relevance');
-  };
-
-  const handleCategoryDiscoveryClick = (cat: string) => {
-    trackCategorySelect(cat);
-    setSelectedCategory(cat);
-  };
-
   const isHomeView = !searchQuery && selectedCategory === 'All' && selectedMarketplace === 'All' && selectedCollection === 'ALL';
   const isTotallyEmpty = !data || !data.products || data.products.length === 0;
 
@@ -250,12 +421,12 @@ export const App: React.FC = () => {
       {/* 1. HEADER (ANNOUNCEMENT BAR + MAIN NAVBAR + CATEGORY SUBNAV) */}
       <Header
         searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
+        onSearchChange={handleSearchChange}
         categories={allCategories}
         selectedCategory={selectedCategory}
-        onSelectCategory={setSelectedCategory}
+        onSelectCategory={handleSelectCategory}
         selectedCollection={selectedCollection}
-        onSelectCollection={setSelectedCollection}
+        onSelectCollection={handleSelectCollection}
         wishlistCount={wishlistIds.length}
         onOpenWishlist={() => setIsWishlistOpen(true)}
         isRefreshing={refreshing}
@@ -323,14 +494,14 @@ export const App: React.FC = () => {
             {isHomeView && data.hero && (
               <HeroSlider
                 heroItems={data.hero}
-                onSelectStore={(st) => setSelectedMarketplace(st as Marketplace)}
+                onSelectStore={(st) => handleSelectMarketplace(st as Marketplace)}
               />
             )}
 
             {/* 3. MARKETPLACE FILTER BAR */}
             <MarketplaceTabs
               selectedMarketplace={selectedMarketplace}
-              onSelectMarketplace={setSelectedMarketplace}
+              onSelectMarketplace={handleSelectMarketplace}
               counts={marketplaceCounts}
             />
 
@@ -357,7 +528,7 @@ export const App: React.FC = () => {
 
                       <button
                         type="button"
-                        onClick={() => setSelectedCollection('TRENDING')}
+                        onClick={() => handleSelectCollection('TRENDING')}
                         className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 group cursor-pointer p-1 min-h-[36px]"
                         aria-label="View all trending deals"
                       >
@@ -374,7 +545,7 @@ export const App: React.FC = () => {
                           product={product}
                           isWishlisted={wishlistIds.includes(product.id)}
                           onToggleWishlist={() => toggleWishlist(product.id)}
-                          onOpenDetail={() => setSelectedProduct(product)}
+                          onOpenDetail={() => handleOpenProduct(product)}
                         />
                       ))}
                     </div>
@@ -401,7 +572,7 @@ export const App: React.FC = () => {
 
                       <button
                         type="button"
-                        onClick={() => setSelectedCollection('BEST_DISCOUNTS')}
+                        onClick={() => handleSelectCollection('BEST_DISCOUNTS')}
                         className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 group cursor-pointer p-1 min-h-[36px]"
                         aria-label="Explore discount deals"
                       >
@@ -417,7 +588,7 @@ export const App: React.FC = () => {
                           product={product}
                           isWishlisted={wishlistIds.includes(product.id)}
                           onToggleWishlist={() => toggleWishlist(product.id)}
-                          onOpenDetail={() => setSelectedProduct(product)}
+                          onOpenDetail={() => handleOpenProduct(product)}
                         />
                       ))}
                     </div>
@@ -444,7 +615,7 @@ export const App: React.FC = () => {
 
                       <button
                         type="button"
-                        onClick={() => setSelectedCollection('TOP_PICKS')}
+                        onClick={() => handleSelectCollection('TOP_PICKS')}
                         className="text-xs font-bold text-amber-800 hover:text-amber-900 flex items-center gap-1 group cursor-pointer p-1 min-h-[36px]"
                         aria-label="View all top picks"
                       >
@@ -460,7 +631,7 @@ export const App: React.FC = () => {
                           product={product}
                           isWishlisted={wishlistIds.includes(product.id)}
                           onToggleWishlist={() => toggleWishlist(product.id)}
-                          onOpenDetail={() => setSelectedProduct(product)}
+                          onOpenDetail={() => handleOpenProduct(product)}
                         />
                       ))}
                     </div>
@@ -554,7 +725,7 @@ export const App: React.FC = () => {
                         product={product}
                         isWishlisted={wishlistIds.includes(product.id)}
                         onToggleWishlist={() => toggleWishlist(product.id)}
-                        onOpenDetail={() => setSelectedProduct(product)}
+                        onOpenDetail={() => handleOpenProduct(product)}
                       />
                     ))}
                   </div>
@@ -653,7 +824,7 @@ export const App: React.FC = () => {
                         product={product}
                         isWishlisted={wishlistIds.includes(product.id)}
                         onToggleWishlist={() => toggleWishlist(product.id)}
-                        onOpenDetail={() => setSelectedProduct(product)}
+                        onOpenDetail={() => handleOpenProduct(product)}
                       />
                     ))}
                   </div>
@@ -687,7 +858,7 @@ export const App: React.FC = () => {
         <button
           type="button"
           onClick={() => {
-            setSelectedCollection('TRENDING');
+            handleSelectCollection('TRENDING');
             window.scrollTo({ top: 350, behavior: 'smooth' });
           }}
           className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg text-[10px] font-bold transition min-h-[44px] justify-center ${
@@ -740,7 +911,7 @@ export const App: React.FC = () => {
       {/* Product Detail Modal */}
       <ProductModal
         product={selectedProduct}
-        onClose={() => setSelectedProduct(null)}
+        onClose={handleCloseProduct}
         isWishlisted={selectedProduct ? wishlistIds.includes(selectedProduct.id) : false}
         onToggleWishlist={() => {
           if (selectedProduct) toggleWishlist(selectedProduct.id);
@@ -753,7 +924,7 @@ export const App: React.FC = () => {
         onClose={() => setIsWishlistOpen(false)}
         wishlistProducts={wishlistProducts}
         onRemove={toggleWishlist}
-        onSelectProduct={p => setSelectedProduct(p)}
+        onSelectProduct={p => handleOpenProduct(p)}
       />
     </div>
   );
