@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { ShoppingBag, X, ShieldCheck, Zap, Sparkles, Heart, ExternalLink, Mail, Phone, MapPin, CheckCircle2, Info, Instagram, Youtube } from 'lucide-react';
 import { FooterPage } from '../types';
+import { getActivityStats, SiteActivityStats } from '../services/activity';
 
 interface FooterProps {
   footerPages?: FooterPage[];
-  categoryCount?: number;
 }
 
 export type PolicyKey = 'about' | 'contact' | 'privacy' | 'disclaimer' | 'affiliate';
@@ -67,8 +67,22 @@ const STATIC_POLICIES: Record<PolicyKey, PolicyData> = {
   }
 };
 
-export const Footer: React.FC<FooterProps> = ({ footerPages, categoryCount = 11 }) => {
+export const Footer: React.FC<FooterProps> = ({ footerPages }) => {
   const [activePolicy, setActivePolicy] = useState<PolicyKey | null>(null);
+  const [activityStats, setActivityStats] = useState<SiteActivityStats>(() => getActivityStats());
+
+  // Listen to real activity counter updates
+  useEffect(() => {
+    const handleActivityUpdate = () => {
+      setActivityStats(getActivityStats());
+    };
+    window.addEventListener('sainiwalaa_activity_change', handleActivityUpdate);
+    window.addEventListener('storage', handleActivityUpdate);
+    return () => {
+      window.removeEventListener('sainiwalaa_activity_change', handleActivityUpdate);
+      window.removeEventListener('storage', handleActivityUpdate);
+    };
+  }, []);
 
   // Check URL hash on load for direct policy links (e.g. #about, #privacy)
   useEffect(() => {
@@ -297,90 +311,31 @@ export const Footer: React.FC<FooterProps> = ({ footerPages, categoryCount = 11 
           </div>
         </div>
 
-        {/* SHOPPING TRUST / WHY SHOP WITH SAINIWALAA BOX */}
-        <section
-          aria-label="Shopping Trust and Why Shop With SAINIWALAA"
-          className="my-7 p-4 sm:p-6 bg-slate-800/40 rounded-3xl border border-slate-700/60 shadow-xs"
-        >
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 mb-4 pb-3.5 border-b border-slate-700/60">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center flex-shrink-0 border border-amber-500/30">
-                <ShieldCheck className="w-4 h-4" />
-              </div>
-              <h3 className="text-sm sm:text-base font-black text-white tracking-wide">
-                Why Shop With SAINIWALAA?
-              </h3>
-            </div>
-            <p className="text-xs text-slate-300 leading-relaxed max-w-xl">
-              Discover products on SAINIWALAA and continue securely to the selected marketplace for purchase, payment and delivery.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            {/* 1. Dynamic Categories */}
-            <div className="bg-slate-900/60 p-3 sm:p-3.5 rounded-2xl border border-slate-800 flex flex-col justify-between">
-              <div className="flex items-center gap-2 mb-1.5">
-                <div className="w-7 h-7 rounded-lg bg-emerald-500/15 text-emerald-400 flex items-center justify-center flex-shrink-0">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                </div>
-                <span className="text-xs sm:text-sm font-bold text-white">
-                  {categoryCount && categoryCount > 0 ? `${categoryCount}+ Categories` : '11+ Categories'}
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 leading-normal">
-                Curated collections across fashion, footwear, electronics &amp; daily needs.
-              </p>
-            </div>
-
-            {/* 2. Multiple Marketplaces */}
-            <div className="bg-slate-900/60 p-3 sm:p-3.5 rounded-2xl border border-slate-800 flex flex-col justify-between">
-              <div className="flex items-center gap-2 mb-1.5">
-                <div className="w-7 h-7 rounded-lg bg-blue-500/15 text-blue-400 flex items-center justify-center flex-shrink-0">
-                  <ShoppingBag className="w-3.5 h-3.5" />
-                </div>
-                <span className="text-xs sm:text-sm font-bold text-white">
-                  Multiple Marketplaces
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 leading-normal">
-                Direct verified links to official stores on Amazon, Flipkart, Meesho &amp; Ajio.
-              </p>
-            </div>
-
-            {/* 3. Fresh Deals */}
-            <div className="bg-slate-900/60 p-3 sm:p-3.5 rounded-2xl border border-slate-800 flex flex-col justify-between">
-              <div className="flex items-center gap-2 mb-1.5">
-                <div className="w-7 h-7 rounded-lg bg-amber-500/15 text-amber-400 flex items-center justify-center flex-shrink-0">
-                  <Sparkles className="w-3.5 h-3.5" />
-                </div>
-                <span className="text-xs sm:text-sm font-bold text-white">
-                  Fresh Deals
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 leading-normal">
-                Handpicked offers and discounts regularly updated for genuine shopping savings.
-              </p>
-            </div>
-
-            {/* 4. Trusted Marketplace Checkout */}
-            <div className="bg-slate-900/60 p-3 sm:p-3.5 rounded-2xl border border-slate-800 flex flex-col justify-between">
-              <div className="flex items-center gap-2 mb-1.5">
-                <div className="w-7 h-7 rounded-lg bg-rose-500/15 text-rose-400 flex items-center justify-center flex-shrink-0">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                </div>
-                <span className="text-xs sm:text-sm font-bold text-white leading-tight">
-                  Trusted Checkout
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 leading-normal">
-                Final shopping, payments &amp; doorstep delivery are securely handled by Amazon, Flipkart or Meesho.
-              </p>
-            </div>
-          </div>
-        </section>
+        {/* COMPACT REAL SITE ACTIVITY COUNTER */}
+        <div className="border-t border-slate-800/80 mt-6 pt-3.5 pb-1 text-center text-[11px] sm:text-xs text-slate-400 flex flex-wrap items-center justify-center gap-x-3 sm:gap-x-4 gap-y-1.5">
+          <span className="font-semibold text-slate-300 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            Site Activity
+          </span>
+          <span className="text-slate-600 hidden sm:inline">•</span>
+          <span className="inline-flex items-center gap-1">
+            <span aria-hidden="true">👥</span>
+            <span>Visitors: <strong className="text-slate-200 font-semibold">{activityStats.visitors}</strong></span>
+          </span>
+          <span className="text-slate-600 hidden sm:inline">•</span>
+          <span className="inline-flex items-center gap-1">
+            <span aria-hidden="true">👀</span>
+            <span>Product Views: <strong className="text-slate-200 font-semibold">{activityStats.productViews}</strong></span>
+          </span>
+          <span className="text-slate-600 hidden sm:inline">•</span>
+          <span className="inline-flex items-center gap-1">
+            <span aria-hidden="true">🔗</span>
+            <span>Marketplace Clicks: <strong className="text-slate-200 font-semibold">{activityStats.marketplaceClicks}</strong></span>
+          </span>
+        </div>
 
         {/* Bottom Disclaimer & Copyright */}
-        <div className="border-t border-slate-800/90 pt-6 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="border-t border-slate-800/90 pt-4 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p>© {new Date().getFullYear()} SAINIWALAA (sainiwalaa.in) • SAINIWALAA Deals. All rights reserved.</p>
           <p className="text-[11px]">
             India's Smart Shopping Companion • Official retailer redirection

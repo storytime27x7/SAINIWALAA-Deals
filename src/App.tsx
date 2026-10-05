@@ -855,10 +855,7 @@ export const App: React.FC = () => {
       </main>
 
       {/* 4. FOOTER (MULTI-COLUMN DESKTOP + MOBILE ECOMMERCE FOOTER) */}
-      <Footer
-        footerPages={data?.footer || []}
-        categoryCount={allCategories.filter(c => c !== 'All').length || 11}
-      />
+      <Footer footerPages={data?.footer || []} />
 
       {/* 5. MOBILE BOTTOM NAVIGATION (Hidden on Desktop) */}
       <nav aria-label="Mobile Navigation" className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-3 py-1.5 flex items-center justify-around shadow-2xl">

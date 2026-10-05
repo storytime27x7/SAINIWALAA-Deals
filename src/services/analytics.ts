@@ -1,4 +1,5 @@
 import { ProductItem } from '../types';
+import { recordRealVisit, recordRealProductView, recordRealMarketplaceClick } from './activity';
 
 declare global {
   interface Window {
@@ -27,6 +28,7 @@ function sendEvent(eventName: string, params: Record<string, any> = {}) {
  */
 export function trackPageView(pageTitle: string, pagePath: string) {
   try {
+    recordRealVisit();
     const fullUrl = `${window.location.origin}${pagePath.startsWith('/') ? pagePath : `/${pagePath}`}`;
     if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
       window.gtag('event', 'page_view', {
@@ -57,6 +59,7 @@ export function trackSearch(searchTerm: string) {
  */
 export function trackViewItem(product: ProductItem) {
   if (!product) return;
+  recordRealProductView();
   sendEvent('view_item', {
     currency: 'INR',
     value: product.PRICE || 0,
@@ -96,6 +99,7 @@ export function trackSelectItem(product: ProductItem, listName: string = 'Deals 
  */
 export function trackMarketplaceClick(product: ProductItem, source: string = 'product_card') {
   if (!product) return;
+  recordRealMarketplaceClick();
   sendEvent('marketplace_click', {
     marketplace: product.marketplace,
     item_id: product.id,
