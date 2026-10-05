@@ -4,6 +4,7 @@ import { FooterPage } from '../types';
 
 interface FooterProps {
   footerPages?: FooterPage[];
+  categoryCount?: number;
 }
 
 export type PolicyKey = 'about' | 'contact' | 'privacy' | 'disclaimer' | 'affiliate';
@@ -66,7 +67,7 @@ const STATIC_POLICIES: Record<PolicyKey, PolicyData> = {
   }
 };
 
-export const Footer: React.FC<FooterProps> = ({ footerPages }) => {
+export const Footer: React.FC<FooterProps> = ({ footerPages, categoryCount = 11 }) => {
   const [activePolicy, setActivePolicy] = useState<PolicyKey | null>(null);
 
   // Check URL hash on load for direct policy links (e.g. #about, #privacy)
@@ -295,6 +296,88 @@ export const Footer: React.FC<FooterProps> = ({ footerPages }) => {
             </p>
           </div>
         </div>
+
+        {/* SHOPPING TRUST / WHY SHOP WITH SAINIWALAA BOX */}
+        <section
+          aria-label="Shopping Trust and Why Shop With SAINIWALAA"
+          className="my-7 p-4 sm:p-6 bg-slate-800/40 rounded-3xl border border-slate-700/60 shadow-xs"
+        >
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 mb-4 pb-3.5 border-b border-slate-700/60">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center flex-shrink-0 border border-amber-500/30">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <h3 className="text-sm sm:text-base font-black text-white tracking-wide">
+                Why Shop With SAINIWALAA?
+              </h3>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed max-w-xl">
+              Discover products on SAINIWALAA and continue securely to the selected marketplace for purchase, payment and delivery.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            {/* 1. Dynamic Categories */}
+            <div className="bg-slate-900/60 p-3 sm:p-3.5 rounded-2xl border border-slate-800 flex flex-col justify-between">
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/15 text-emerald-400 flex items-center justify-center flex-shrink-0">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                </div>
+                <span className="text-xs sm:text-sm font-bold text-white">
+                  {categoryCount && categoryCount > 0 ? `${categoryCount}+ Categories` : '11+ Categories'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 leading-normal">
+                Curated collections across fashion, footwear, electronics &amp; daily needs.
+              </p>
+            </div>
+
+            {/* 2. Multiple Marketplaces */}
+            <div className="bg-slate-900/60 p-3 sm:p-3.5 rounded-2xl border border-slate-800 flex flex-col justify-between">
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="w-7 h-7 rounded-lg bg-blue-500/15 text-blue-400 flex items-center justify-center flex-shrink-0">
+                  <ShoppingBag className="w-3.5 h-3.5" />
+                </div>
+                <span className="text-xs sm:text-sm font-bold text-white">
+                  Multiple Marketplaces
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 leading-normal">
+                Direct verified links to official stores on Amazon, Flipkart, Meesho &amp; Ajio.
+              </p>
+            </div>
+
+            {/* 3. Fresh Deals */}
+            <div className="bg-slate-900/60 p-3 sm:p-3.5 rounded-2xl border border-slate-800 flex flex-col justify-between">
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="w-7 h-7 rounded-lg bg-amber-500/15 text-amber-400 flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="w-3.5 h-3.5" />
+                </div>
+                <span className="text-xs sm:text-sm font-bold text-white">
+                  Fresh Deals
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 leading-normal">
+                Handpicked offers and discounts regularly updated for genuine shopping savings.
+              </p>
+            </div>
+
+            {/* 4. Trusted Marketplace Checkout */}
+            <div className="bg-slate-900/60 p-3 sm:p-3.5 rounded-2xl border border-slate-800 flex flex-col justify-between">
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="w-7 h-7 rounded-lg bg-rose-500/15 text-rose-400 flex items-center justify-center flex-shrink-0">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                </div>
+                <span className="text-xs sm:text-sm font-bold text-white leading-tight">
+                  Trusted Checkout
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 leading-normal">
+                Final shopping, payments &amp; doorstep delivery are securely handled by Amazon, Flipkart or Meesho.
+              </p>
+            </div>
+          </div>
+        </section>
 
         {/* Bottom Disclaimer & Copyright */}
         <div className="border-t border-slate-800/90 pt-6 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-3">
