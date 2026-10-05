@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, X, ShieldCheck, Zap, Sparkles, Heart, ExternalLink, Mail, Phone, MapPin, CheckCircle2, Info } from 'lucide-react';
+import { ShoppingBag, X, ShieldCheck, Zap, Sparkles, Heart, ExternalLink, Mail, Phone, MapPin, CheckCircle2, Info, Instagram, Youtube } from 'lucide-react';
 import { FooterPage } from '../types';
 
 interface FooterProps {
@@ -16,12 +16,12 @@ interface PolicyData {
 
 const STATIC_POLICIES: Record<PolicyKey, PolicyData> = {
   about: {
-    title: 'About SAINIWALAA Deals',
-    badge: 'Our Mission & Story',
+    title: 'About SAINIWALAA',
+    badge: 'Brand & Creator Identity',
     content: [
-      'SAINIWALAA Deals is your dedicated Indian shopping and deal discovery companion. We hand-curate verified discounts, trending price drops, and high-value offers across premier Indian ecommerce platforms including Amazon India, Flipkart, Meesho, and Ajio.',
+      'SAINIWALAA (also known as SAINIWALAA Deals, SAINIWALAA.in, and sainiwalaa.in) is your dedicated Indian deal curation and smart shopping discovery brand. We hand-curate verified discounts, trending price drops, and high-value offers across premier Indian ecommerce platforms including Amazon India, Flipkart, Meesho, and Ajio.',
       'Rooted in Jaipur, Rajasthan, our mission is to eliminate shopping clutter and bring genuine savings directly to smart consumers without markups, memberships, or unnecessary redirects.',
-      'Every product listed is vetted for authentic customer ratings, verified pricing, and direct availability on official retailer platforms. Shop smarter and save more every single day!'
+      'Follow our official verified social channels: Instagram (@sainiwalaa.in) and YouTube (SAINIWALAA) for daily verified deals and shopping updates!'
     ]
   },
   contact: {
@@ -166,10 +166,40 @@ export const Footer: React.FC<FooterProps> = ({ footerPages }) => {
               <span className="text-white font-black text-lg tracking-wider">SAINIWALAA DEALS</span>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed mb-4">
-              Amazon, Flipkart & Meesho ke behtareen products aur deals ek jagah.
+              Amazon, Flipkart & Meesho ke behtareen products aur verified deals ek jagah. Discover smart shopping with SAINIWALAA (sainiwalaa.in).
             </p>
-            <div className="inline-flex items-center gap-1.5 bg-slate-800 px-3 py-1.5 rounded-full text-xs text-amber-300 font-semibold border border-slate-700">
+            <div className="inline-flex items-center gap-1.5 bg-slate-800 px-3 py-1.5 rounded-full text-xs text-amber-300 font-semibold border border-slate-700 mb-4">
               <span>⚡ India's Smart Shopping Companion</span>
+            </div>
+
+            {/* Confirmed Official Social Channels */}
+            <div className="pt-3 border-t border-slate-800 flex flex-col gap-2">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                Official Social Channels
+              </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <a
+                  href="https://www.instagram.com/sainiwalaa.in/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 hover:text-white transition border border-slate-700/80 min-h-[36px]"
+                  aria-label="Follow SAINIWALAA on Instagram @sainiwalaa.in"
+                >
+                  <Instagram className="w-3.5 h-3.5 text-rose-400" />
+                  <span>@sainiwalaa.in</span>
+                </a>
+
+                <a
+                  href="https://www.youtube.com/@SAINIWALAA"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 hover:text-white transition border border-slate-700/80 min-h-[36px]"
+                  aria-label="Subscribe to SAINIWALAA on YouTube"
+                >
+                  <Youtube className="w-3.5 h-3.5 text-red-500" />
+                  <span>SAINIWALAA</span>
+                </a>
+              </div>
             </div>
           </div>
 
@@ -268,7 +298,7 @@ export const Footer: React.FC<FooterProps> = ({ footerPages }) => {
 
         {/* Bottom Disclaimer & Copyright */}
         <div className="border-t border-slate-800/90 pt-6 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p>© {new Date().getFullYear()} SAINIWALAA Deals. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} SAINIWALAA (sainiwalaa.in) • SAINIWALAA Deals. All rights reserved.</p>
           <p className="text-[11px]">
             India's Smart Shopping Companion • Official retailer redirection
           </p>

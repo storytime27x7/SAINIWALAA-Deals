@@ -11,6 +11,32 @@ import {
 export const SITE_BASE_URL = 'https://sainiwalaa-deals-27762.web.app';
 export const SITE_NAME = 'SAINIWALAA Deals';
 
+/**
+ * 15. BRAND + SOCIAL IDENTITY
+ * Unified brand variations for SAINIWALAA (SAINIWALAA, SAINIWALAA.in, sainiwalaa.in, SAINIWALAA Deals)
+ */
+export const BRAND_IDENTITY = {
+  primaryName: 'SAINIWALAA',
+  alternateNames: ['SAINIWALAA Deals', 'SAINIWALAA.in', 'sainiwalaa.in'],
+  websiteUrl: SITE_BASE_URL,
+  logoUrl: `${SITE_BASE_URL}/favicon.svg`,
+  description: 'SAINIWALAA (sainiwalaa.in) is your dedicated Indian deal curation and smart shopping discovery brand, vetting verified price drops across Amazon, Flipkart, Meesho and Ajio.',
+  socialProfiles: {
+    instagram: {
+      handle: 'sainiwalaa.in',
+      url: 'https://www.instagram.com/sainiwalaa.in/'
+    },
+    youtube: {
+      channel: 'SAINIWALAA',
+      url: 'https://www.youtube.com/@SAINIWALAA'
+    }
+  },
+  confirmedSameAs: [
+    'https://www.instagram.com/sainiwalaa.in/',
+    'https://www.youtube.com/@SAINIWALAA'
+  ]
+};
+
 // Common stop words (English and Hinglish/Indian e-commerce noise) to filter out
 const STOP_WORDS = new Set([
   'the', 'a', 'an', 'and', 'or', 'but', 'for', 'with', 'in', 'on', 'at', 'to',
@@ -356,9 +382,14 @@ export function generateHomeSeo(products: ProductItem[]): SeoMetadata {
     '@graph': [
       {
         '@type': 'WebSite',
+        '@id': `${SITE_BASE_URL}/#website`,
         name: SITE_NAME,
+        alternateName: BRAND_IDENTITY.alternateNames,
         url: canonicalUrl,
         description,
+        publisher: {
+          '@id': `${SITE_BASE_URL}/#organization`
+        },
         potentialAction: {
           '@type': 'SearchAction',
           target: `${SITE_BASE_URL}/?search={search_term_string}`,
@@ -367,9 +398,13 @@ export function generateHomeSeo(products: ProductItem[]): SeoMetadata {
       },
       {
         '@type': 'Organization',
-        name: SITE_NAME,
+        '@id': `${SITE_BASE_URL}/#organization`,
+        name: BRAND_IDENTITY.primaryName,
+        alternateName: BRAND_IDENTITY.alternateNames,
         url: canonicalUrl,
-        logo: `${SITE_BASE_URL}/favicon.svg`
+        logo: BRAND_IDENTITY.logoUrl,
+        description: BRAND_IDENTITY.description,
+        sameAs: BRAND_IDENTITY.confirmedSameAs
       }
     ]
   };

@@ -47,15 +47,37 @@
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "WebSite",
-      "name": "SAINIWALAA Deals",
-      "url": "https://sainiwalaa-deals-27762.web.app/",
-      "description": "Discover the best deals, trending products and smart shopping picks from Amazon, Flipkart and Meesho with SAINIWALAA Deals.",
-      "potentialAction": {
-        "@type": "SearchAction",
-        "target": "https://sainiwalaa-deals-27762.web.app/?search={search_term_string}",
-        "query-input": "required name=search_term_string"
-      }
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "@id": "https://sainiwalaa-deals-27762.web.app/#website",
+          "name": "SAINIWALAA Deals",
+          "alternateName": ["SAINIWALAA", "SAINIWALAA.in", "sainiwalaa.in"],
+          "url": "https://sainiwalaa-deals-27762.web.app/",
+          "description": "Discover the best deals, trending products and smart shopping picks from Amazon, Flipkart and Meesho with SAINIWALAA Deals.",
+          "publisher": {
+            "@id": "https://sainiwalaa-deals-27762.web.app/#organization"
+          },
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://sainiwalaa-deals-27762.web.app/?search={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://sainiwalaa-deals-27762.web.app/#organization",
+          "name": "SAINIWALAA",
+          "alternateName": ["SAINIWALAA Deals", "SAINIWALAA.in", "sainiwalaa.in"],
+          "url": "https://sainiwalaa-deals-27762.web.app/",
+          "logo": "https://sainiwalaa-deals-27762.web.app/favicon.svg",
+          "description": "SAINIWALAA (sainiwalaa.in) is your dedicated Indian deal curation and smart shopping discovery brand.",
+          "sameAs": [
+            "https://www.instagram.com/sainiwalaa.in/",
+            "https://www.youtube.com/@SAINIWALAA"
+          ]
+        }
+      ]
     }
     </script>
   </head>
