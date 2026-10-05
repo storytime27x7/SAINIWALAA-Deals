@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { ProductItem } from '../types';
 import { X, Heart, ExternalLink, Trash2, ShoppingBag } from 'lucide-react';
+import { trackMarketplaceClick } from '../services/analytics';
 
 interface WishlistDrawerProps {
   isOpen: boolean;
@@ -37,6 +38,9 @@ export const WishlistDrawer: React.FC<WishlistDrawerProps> = ({
     <div
       className="fixed inset-0 z-50 overflow-hidden bg-slate-950/70 backdrop-blur-sm flex justify-end animate-in fade-in duration-200"
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Saved Wishlist Deals"
     >
       <div
         className="w-full max-w-md bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300"
@@ -53,8 +57,9 @@ export const WishlistDrawer: React.FC<WishlistDrawerProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition cursor-pointer"
+            className="w-8 h-8 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition cursor-pointer flex items-center justify-center focus-visible:ring-2 focus-visible:ring-amber-400 outline-none"
             title="Close Wishlist"
+            aria-label="Close Wishlist"
           >
             <X className="w-5 h-5" />
           </button>
@@ -74,7 +79,7 @@ export const WishlistDrawer: React.FC<WishlistDrawerProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="mt-6 bg-slate-900 hover:bg-slate-800 text-amber-400 font-bold px-4 py-2 rounded-xl text-xs transition cursor-pointer"
+                className="mt-6 bg-slate-900 hover:bg-slate-800 text-amber-400 font-bold px-4 py-2.5 rounded-xl text-xs transition cursor-pointer"
               >
                 Browse Deals
               </button>
@@ -91,7 +96,12 @@ export const WishlistDrawer: React.FC<WishlistDrawerProps> = ({
               >
                 <div className="w-16 h-16 rounded-xl bg-slate-100 overflow-hidden flex-shrink-0 flex items-center justify-center p-1 border border-slate-200/60">
                   {item.IMAGE ? (
-                    <img src={item.IMAGE} alt={item.NAME} className="w-full h-full object-contain" />
+                    <img
+                      src={item.IMAGE}
+                      alt={item.NAME || 'Product'}
+                      className="w-full h-full object-contain"
+                      loading="lazy"
+                    />
                   ) : (
                     <ShoppingBag className="w-8 h-8 text-slate-300" />
                   )}
@@ -117,9 +127,13 @@ export const WishlistDrawer: React.FC<WishlistDrawerProps> = ({
                     href={item.LINK || '#'}
                     target="_blank"
                     rel="noopener noreferrer"
-                    onClick={e => e.stopPropagation()}
-                    className="py-1.5 px-2.5 bg-slate-900 hover:bg-amber-500 hover:text-slate-950 text-amber-400 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-xs cursor-pointer"
+                    onClick={e => {
+                      e.stopPropagation();
+                      trackMarketplaceClick(item, 'wishlist_drawer');
+                    }}
+                    className="py-1.5 px-3 min-h-[34px] bg-slate-900 hover:bg-amber-500 hover:text-slate-950 text-amber-400 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-xs cursor-pointer focus-visible:ring-2 focus-visible:ring-amber-400 outline-none"
                     title={`Buy on ${item.marketplace}`}
+                    aria-label={`Buy ${item.NAME} on ${item.marketplace}`}
                   >
                     <span>Buy</span>
                     <ExternalLink className="w-3.5 h-3.5" />
@@ -130,8 +144,9 @@ export const WishlistDrawer: React.FC<WishlistDrawerProps> = ({
                       e.stopPropagation();
                       onRemove(item.id);
                     }}
-                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer"
+                    className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer"
                     title="Remove from wishlist"
+                    aria-label={`Remove ${item.NAME} from wishlist`}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>

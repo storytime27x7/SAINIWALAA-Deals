@@ -1,19 +1,26 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ApiResponse, CollectionFilter, Marketplace, ProductItem } from './types';
 import { fetchDealsApi, getCachedDeals } from './services/api';
 import { rankProducts } from './services/ranking';
+import {
+  trackPageView,
+  trackSearch,
+  trackWishlistAdd,
+  trackWishlistRemove,
+  trackCategorySelect
+} from './services/analytics';
 import { Header } from './components/Header';
 import { HeroSlider } from './components/HeroSlider';
 import { MarketplaceTabs } from './components/MarketplaceTabs';
 import { ProductCard } from './components/ProductCard';
 import { ProductModal } from './components/ProductModal';
 import { WishlistDrawer } from './components/WishlistDrawer';
+import { SkeletonGrid } from './components/SkeletonGrid';
 import { Footer } from './components/Footer';
 import {
   Sparkles,
   Flame,
   Percent,
-  IndianRupee,
   RefreshCw,
   ShoppingBag,
   AlertTriangle,
@@ -23,16 +30,18 @@ import {
   Grid,
   TrendingUp,
   CheckCircle2,
-  SlidersHorizontal,
   ArrowUpDown,
-  Tag,
-  Zap
+  Tag
 } from 'lucide-react';
 
 export const App: React.FC = () => {
   // Always initialize with cached/embedded data for zero-delay instant rendering
   const [data, setData] = useState<ApiResponse>(() => getCachedDeals());
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [isInitialLoading, setIsInitialLoading] = useState<boolean>(() => {
+    const cached = getCachedDeals();
+    return !cached || !cached.products || cached.products.length === 0;
+  });
   const [networkError, setNetworkError] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -54,6 +63,46 @@ export const App: React.FC = () => {
   });
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
 
+  // GA4 SPA Page View Tracking
+  const lastPagePathRef = useRef<string>('');
+
+  useEffect(() => {
+    let path = '/';
+    let title = 'SAINIWALAA Deals - Amazon, Flipkart & Meesho Best Deals';
+
+    if (searchQuery.trim()) {
+      path = `/?search=${encodeURIComponent(searchQuery.trim())}`;
+      title = `Search: "${searchQuery.trim()}" - SAINIWALAA Deals`;
+    } else if (selectedCategory !== 'All') {
+      path = `/category/${encodeURIComponent(selectedCategory)}`;
+      title = `${selectedCategory} Deals - SAINIWALAA Deals`;
+    } else if (selectedMarketplace !== 'All') {
+      path = `/store/${encodeURIComponent(selectedMarketplace)}`;
+      title = `${selectedMarketplace} Deals - SAINIWALAA Deals`;
+    } else if (selectedCollection !== 'ALL') {
+      path = `/collection/${encodeURIComponent(selectedCollection.toLowerCase())}`;
+      title = `${selectedCollection.replace('_', ' ')} Deals - SAINIWALAA Deals`;
+    }
+
+    if (lastPagePathRef.current !== path) {
+      lastPagePathRef.current = path;
+      trackPageView(title, path);
+      document.title = title;
+    }
+  }, [searchQuery, selectedCategory, selectedMarketplace, selectedCollection]);
+
+  // GA4 Debounced Search Query Tracking
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (query.length < 2) return;
+
+    const timer = setTimeout(() => {
+      trackSearch(query);
+    }, 700);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => {
@@ -70,11 +119,12 @@ export const App: React.FC = () => {
         setData(res);
         if (force) showToast('Deals refreshed successfully! ✨');
       }
-    } catch (err: any) {
-      console.warn('API refresh error:', err);
-      setNetworkError('Deals load nahi ho pa rahe. Retry karein.');
+    } catch {
+      // Non-technical error message without exposing URLs or keys
+      setNetworkError('Deals update nahi ho sake. Kripya refresh karein.');
     } finally {
       setRefreshing(false);
+      setIsInitialLoading(false);
     }
   };
 
@@ -83,12 +133,22 @@ export const App: React.FC = () => {
   }, []);
 
   const toggleWishlist = (id: string) => {
+    const product = data?.products?.find(p => p.id === id);
     setWishlistIds(prev => {
       const exists = prev.includes(id);
       const updated = exists ? prev.filter(item => item !== id) : [...prev, id];
       try {
         localStorage.setItem('sainiwalaa_wishlist', JSON.stringify(updated));
       } catch {}
+
+      if (product) {
+        if (exists) {
+          trackWishlistRemove(product);
+        } else {
+          trackWishlistAdd(product);
+        }
+      }
+
       showToast(exists ? 'Removed from Wishlist' : 'Saved to Wishlist! ❤️');
       return updated;
     });
@@ -177,6 +237,11 @@ export const App: React.FC = () => {
     setSortBy('relevance');
   };
 
+  const handleCategoryDiscoveryClick = (cat: string) => {
+    trackCategorySelect(cat);
+    setSelectedCategory(cat);
+  };
+
   const isHomeView = !searchQuery && selectedCategory === 'All' && selectedMarketplace === 'All' && selectedCollection === 'ALL';
   const isTotallyEmpty = !data || !data.products || data.products.length === 0;
 
@@ -197,9 +262,12 @@ export const App: React.FC = () => {
         onRefresh={() => loadData(true)}
       />
 
-      <main className="flex-1 w-full pb-20 md:pb-8">
-        {isTotallyEmpty ? (
-          /* Professional Fallback State if dataset is completely empty */
+      <main className="flex-1 w-full pb-24 md:pb-10">
+        {isInitialLoading && isTotallyEmpty ? (
+          /* Initial skeleton loading state */
+          <SkeletonGrid />
+        ) : isTotallyEmpty ? (
+          /* Non-technical Error & Empty State */
           <div className="max-w-md mx-auto my-16 p-6 sm:p-8 bg-white rounded-3xl border border-slate-200/80 text-center shadow-lg">
             <div className="w-14 h-14 rounded-2xl bg-amber-500 text-slate-900 flex items-center justify-center mx-auto mb-4 shadow-md shadow-amber-500/20">
               <ShoppingBag className="w-7 h-7" strokeWidth={2.5} />
@@ -208,40 +276,42 @@ export const App: React.FC = () => {
               SAINIWALAA <span className="text-amber-500">Deals</span>
             </h1>
             <p className="text-xs font-semibold text-slate-500 mt-0.5">
-              Best Deals, Smart Shopping
+              Amazon, Flipkart &amp; Meesho Best Deals
             </p>
 
-            <div className="my-6 p-4 bg-amber-50 rounded-2xl border border-amber-200/60">
+            <div className="my-6 p-4 bg-amber-50 rounded-2xl border border-amber-200/60 text-left">
               <p className="text-sm font-bold text-amber-900">
-                Deals load nahi ho pa rahe. Retry karein.
+                Deals load nahi ho sake.
               </p>
-              <p className="text-[11px] text-amber-700 mt-1">
-                Kripya internet check karein ya refresh button dabayein.
+              <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                Kripya apna internet connection check karein aur neeche diye gaye button par click karke dubara try karein.
               </p>
             </div>
 
             <button
+              type="button"
               onClick={() => loadData(true)}
               disabled={refreshing}
-              className="w-full bg-slate-900 hover:bg-slate-800 text-amber-400 font-extrabold py-3 px-5 rounded-xl text-sm flex items-center justify-center gap-2 transition shadow-md shadow-slate-900/10 cursor-pointer"
+              className="w-full bg-slate-900 hover:bg-slate-800 text-amber-400 font-extrabold py-3 px-5 rounded-xl text-sm flex items-center justify-center gap-2 transition shadow-md shadow-slate-900/10 cursor-pointer min-h-[44px]"
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-              <span>{refreshing ? 'Refreshing...' : 'Retry'}</span>
+              <span>{refreshing ? 'Refreshing...' : 'Retry Deals'}</span>
             </button>
           </div>
         ) : (
           <>
-            {/* Non-blocking API warning banner if silent refresh had an issue */}
+            {/* Non-blocking API notice if background refresh had an issue */}
             {networkError && (
               <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 mt-3">
-                <div className="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-2 rounded-xl text-xs flex items-center justify-between shadow-xs">
+                <div className="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-2.5 rounded-2xl text-xs flex items-center justify-between shadow-xs">
                   <div className="flex items-center gap-2 truncate">
                     <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
                     <span className="truncate">{networkError} (Showing verified deals)</span>
                   </div>
                   <button
+                    type="button"
                     onClick={() => loadData(true)}
-                    className="font-bold underline text-amber-950 ml-2 hover:text-amber-700 flex-shrink-0"
+                    className="font-bold underline text-amber-950 ml-2 hover:text-amber-700 flex-shrink-0 cursor-pointer p-1"
                   >
                     Retry
                   </button>
@@ -269,25 +339,27 @@ export const App: React.FC = () => {
               <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 space-y-10 mt-6">
                 {/* SECTION 1: 🔥 TRENDING DEALS (5-6 CARDS DESKTOP, 2 MOBILE) */}
                 {trendingDeals.length > 0 && (
-                  <section className="bg-white rounded-3xl p-5 sm:p-7 border border-slate-200/80 shadow-xs">
-                    <div className="flex items-center justify-between mb-5 pb-3 border-b border-slate-100">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-rose-500 to-rose-400 text-white flex items-center justify-center shadow-xs">
-                          <Flame className="w-5 h-5 fill-white text-white" />
+                  <section className="bg-white rounded-3xl p-4 sm:p-6 md:p-7 border border-slate-200/80 shadow-xs">
+                    <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+                      <div className="flex items-center gap-2.5 sm:gap-3">
+                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-rose-500 to-rose-400 text-white flex items-center justify-center shadow-xs">
+                          <Flame className="w-4 h-4 sm:w-5 sm:h-5 fill-white text-white" />
                         </div>
                         <div>
-                          <h2 className="text-base sm:text-xl font-black text-slate-900 tracking-tight">
+                          <h2 className="text-sm sm:text-lg md:text-xl font-black text-slate-900 tracking-tight">
                             Trending Deals Today
                           </h2>
-                          <p className="text-xs text-slate-500 hidden sm:block">
-                            Most viewed products and rapid price drops across Amazon, Flipkart & Meesho
+                          <p className="text-[11px] sm:text-xs text-slate-500 hidden sm:block">
+                            Most viewed products and rapid price drops across Amazon, Flipkart &amp; Meesho
                           </p>
                         </div>
                       </div>
 
                       <button
+                        type="button"
                         onClick={() => setSelectedCollection('TRENDING')}
-                        className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 group cursor-pointer"
+                        className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 group cursor-pointer p-1 min-h-[36px]"
+                        aria-label="View all trending deals"
                       >
                         <span>View All Deals</span>
                         <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
@@ -295,7 +367,7 @@ export const App: React.FC = () => {
                     </div>
 
                     {/* Responsive Grid: 5-6 cards on Desktop, 3-4 Tablet, 2 Mobile */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-5">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-4 md:gap-5">
                       {trendingDeals.map(product => (
                         <ProductCard
                           key={product.id}
@@ -311,32 +383,34 @@ export const App: React.FC = () => {
 
                 {/* SECTION 2: 🏷️ BEST DISCOUNTS (UP TO 70%+ OFF) */}
                 {bestDiscounts.length > 0 && (
-                  <section className="bg-white rounded-3xl p-5 sm:p-7 border border-slate-200/80 shadow-xs">
-                    <div className="flex items-center justify-between mb-5 pb-3 border-b border-slate-100">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shadow-xs">
-                          <Percent className="w-5 h-5" />
+                  <section className="bg-white rounded-3xl p-4 sm:p-6 md:p-7 border border-slate-200/80 shadow-xs">
+                    <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+                      <div className="flex items-center gap-2.5 sm:gap-3">
+                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shadow-xs">
+                          <Percent className="w-4 h-4 sm:w-5 sm:h-5" />
                         </div>
                         <div>
-                          <h2 className="text-base sm:text-xl font-black text-slate-900 tracking-tight">
+                          <h2 className="text-sm sm:text-lg md:text-xl font-black text-slate-900 tracking-tight">
                             Best Discounts (Up to 70% OFF)
                           </h2>
-                          <p className="text-xs text-slate-500 hidden sm:block">
+                          <p className="text-[11px] sm:text-xs text-slate-500 hidden sm:block">
                             Highest percentage discounts and maximum cash savings
                           </p>
                         </div>
                       </div>
 
                       <button
+                        type="button"
                         onClick={() => setSelectedCollection('BEST_DISCOUNTS')}
-                        className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 group cursor-pointer"
+                        className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 group cursor-pointer p-1 min-h-[36px]"
+                        aria-label="Explore discount deals"
                       >
                         <span>Explore Discounts</span>
                         <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-5">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-4 md:gap-5">
                       {bestDiscounts.map(product => (
                         <ProductCard
                           key={product.id}
@@ -352,32 +426,34 @@ export const App: React.FC = () => {
 
                 {/* SECTION 3: ⭐ TOP PICKS (CURATED BY SAINIWALAA) */}
                 {topPicks.length > 0 && (
-                  <section className="bg-gradient-to-br from-amber-50/70 via-white to-amber-50/40 rounded-3xl p-5 sm:p-7 border border-amber-200/70 shadow-xs">
-                    <div className="flex items-center justify-between mb-5 pb-3 border-b border-amber-200/50">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-400 text-slate-950 flex items-center justify-center shadow-xs font-bold">
-                          <Sparkles className="w-5 h-5" />
+                  <section className="bg-gradient-to-br from-amber-50/70 via-white to-amber-50/40 rounded-3xl p-4 sm:p-6 md:p-7 border border-amber-200/70 shadow-xs">
+                    <div className="flex items-center justify-between mb-4 pb-3 border-b border-amber-200/50">
+                      <div className="flex items-center gap-2.5 sm:gap-3">
+                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-400 text-slate-950 flex items-center justify-center shadow-xs font-bold">
+                          <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
                         </div>
                         <div>
-                          <h2 className="text-base sm:text-xl font-black text-slate-900 tracking-tight">
-                            Top Picks & Editor's Choice
+                          <h2 className="text-sm sm:text-lg md:text-xl font-black text-slate-900 tracking-tight">
+                            Top Picks &amp; Editor's Choice
                           </h2>
-                          <p className="text-xs text-slate-600 hidden sm:block">
+                          <p className="text-[11px] sm:text-xs text-slate-600 hidden sm:block">
                             Hand-verified top-rated deals with genuine price cuts
                           </p>
                         </div>
                       </div>
 
                       <button
+                        type="button"
                         onClick={() => setSelectedCollection('TOP_PICKS')}
-                        className="text-xs font-bold text-amber-800 hover:text-amber-900 flex items-center gap-1 group cursor-pointer"
+                        className="text-xs font-bold text-amber-800 hover:text-amber-900 flex items-center gap-1 group cursor-pointer p-1 min-h-[36px]"
+                        aria-label="View all top picks"
                       >
                         <span>View All Top Picks</span>
                         <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-5">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-4 md:gap-5">
                       {topPicks.map(product => (
                         <ProductCard
                           key={product.id}
@@ -392,19 +468,19 @@ export const App: React.FC = () => {
                 )}
 
                 {/* SECTION 4: 📂 CATEGORY DISCOVERY (BROWSE POPULAR COLLECTIONS) */}
-                <section className="bg-white rounded-3xl p-5 sm:p-7 border border-slate-200/80 shadow-xs">
-                  <div className="mb-5 pb-3 border-b border-slate-100 flex items-center justify-between">
+                <section className="bg-white rounded-3xl p-4 sm:p-6 md:p-7 border border-slate-200/80 shadow-xs">
+                  <div className="mb-4 pb-3 border-b border-slate-100 flex items-center justify-between">
                     <div>
-                      <h2 className="text-base sm:text-xl font-black text-slate-900 tracking-tight">
+                      <h2 className="text-sm sm:text-lg md:text-xl font-black text-slate-900 tracking-tight">
                         Category Discovery
                       </h2>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-[11px] sm:text-xs text-slate-500">
                         Explore handpicked product categories
                       </p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 sm:gap-3">
                     {allCategories
                       .filter(c => c !== 'All')
                       .map(cat => {
@@ -415,15 +491,21 @@ export const App: React.FC = () => {
                         return (
                           <div
                             key={cat}
-                            onClick={() => setSelectedCategory(cat)}
-                            className="p-4 rounded-2xl border border-slate-200 hover:border-amber-400 bg-slate-50 hover:bg-amber-50/50 transition cursor-pointer group text-center flex flex-col items-center justify-center"
+                            onClick={() => handleCategoryDiscoveryClick(cat)}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') handleCategoryDiscoveryClick(cat);
+                            }}
+                            className="p-3 sm:p-4 rounded-2xl border border-slate-200 hover:border-amber-400 bg-slate-50 hover:bg-amber-50/50 transition cursor-pointer group text-center flex flex-col items-center justify-center min-h-[100px] focus-visible:ring-2 focus-visible:ring-amber-400 outline-none"
+                            aria-label={`Category ${cat}, ${count} deals`}
                           >
-                            <div className="w-10 h-10 rounded-full bg-white shadow-xs border border-slate-200 flex items-center justify-center text-amber-500 mb-2 group-hover:scale-110 transition-transform">
-                              <Tag className="w-5 h-5" />
+                            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white shadow-xs border border-slate-200 flex items-center justify-center text-amber-500 mb-2 group-hover:scale-110 transition-transform">
+                              <Tag className="w-4 h-4 sm:w-5 sm:h-5" />
                             </div>
-                            <h4 className="text-xs font-bold text-slate-900 group-hover:text-amber-700 transition">
+                            <h3 className="text-xs font-bold text-slate-900 group-hover:text-amber-700 transition">
                               {cat}
-                            </h4>
+                            </h3>
                             <span className="text-[10px] text-slate-400 mt-0.5">
                               {count} deals
                             </span>
@@ -434,13 +516,13 @@ export const App: React.FC = () => {
                 </section>
 
                 {/* SECTION 5: 🛍️ MORE DEALS / COMPLETE CATALOG */}
-                <section className="bg-white rounded-3xl p-5 sm:p-7 border border-slate-200/80 shadow-xs">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 pb-3 border-b border-slate-100">
+                <section className="bg-white rounded-3xl p-4 sm:p-6 md:p-7 border border-slate-200/80 shadow-xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
                     <div>
-                      <h2 className="text-base sm:text-xl font-black text-slate-900 tracking-tight">
+                      <h2 className="text-sm sm:text-lg md:text-xl font-black text-slate-900 tracking-tight">
                         More Curated Deals
                       </h2>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-[11px] sm:text-xs text-slate-500">
                         Explore all verified offers from Indian retailers
                       </p>
                     </div>
@@ -448,11 +530,13 @@ export const App: React.FC = () => {
                     {/* Sorting selector */}
                     <div className="flex items-center gap-2 self-start sm:self-auto">
                       <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
-                      <span className="text-xs text-slate-500 font-medium">Sort by:</span>
+                      <label htmlFor="sort-select-catalog" className="text-xs text-slate-500 font-medium">Sort by:</label>
                       <select
+                        id="sort-select-catalog"
                         value={sortBy}
                         onChange={e => setSortBy(e.target.value as any)}
-                        className="bg-slate-50 text-slate-800 text-xs font-bold py-1.5 px-3 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-400 cursor-pointer"
+                        aria-label="Sort curated deals"
+                        className="bg-slate-50 text-slate-800 text-xs font-bold py-1.5 px-3 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-400 cursor-pointer min-h-[36px]"
                       >
                         <option value="relevance">Relevance / Top Picks</option>
                         <option value="price_low">Price: Low to High</option>
@@ -463,7 +547,7 @@ export const App: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-5">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-4 md:gap-5">
                     {filteredAndSortedProducts.map(product => (
                       <ProductCard
                         key={product.id}
@@ -480,19 +564,23 @@ export const App: React.FC = () => {
               /* DEDICATED SEARCH / FILTERED RESULTS VIEW */
               <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 mt-6">
                 {/* Filter Header & Breadcrumbs */}
-                <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/80 shadow-xs mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200/80 shadow-xs mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div>
-                    <div className="flex items-center gap-2 text-xs text-slate-400 mb-1">
-                      <button onClick={resetFilters} className="hover:text-slate-800 underline cursor-pointer">
+                    <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-slate-400 mb-1">
+                      <button
+                        type="button"
+                        onClick={resetFilters}
+                        className="hover:text-slate-800 underline cursor-pointer p-0.5"
+                      >
                         Home
                       </button>
                       <span>/</span>
-                      <span className="text-slate-700 font-semibold">
+                      <span className="text-slate-700 font-semibold truncate max-w-[200px] sm:max-w-md">
                         {searchQuery ? `Search: "${searchQuery}"` : selectedCategory !== 'All' ? selectedCategory : 'Filtered Deals'}
                       </span>
-                    </div>
+                    </nav>
 
-                    <h1 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight">
+                    <h1 className="text-base sm:text-xl md:text-2xl font-black text-slate-900 tracking-tight">
                       {searchQuery
                         ? `Search Results for "${searchQuery}"`
                         : selectedCategory !== 'All'
@@ -510,13 +598,15 @@ export const App: React.FC = () => {
                   </div>
 
                   {/* Actions & Sorting */}
-                  <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                  <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end flex-wrap">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-slate-500 font-medium">Sort:</span>
+                      <label htmlFor="sort-select-search" className="text-xs text-slate-500 font-medium">Sort:</label>
                       <select
+                        id="sort-select-search"
                         value={sortBy}
                         onChange={e => setSortBy(e.target.value as any)}
-                        className="bg-slate-50 text-slate-800 text-xs font-bold py-1.5 px-3 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-400 cursor-pointer"
+                        aria-label="Sort filtered results"
+                        className="bg-slate-50 text-slate-800 text-xs font-bold py-1.5 px-3 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-400 cursor-pointer min-h-[36px]"
                       >
                         <option value="relevance">Relevance</option>
                         <option value="price_low">Price: Low to High</option>
@@ -527,8 +617,9 @@ export const App: React.FC = () => {
                     </div>
 
                     <button
+                      type="button"
                       onClick={resetFilters}
-                      className="text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 cursor-pointer"
+                      className="text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 px-3.5 py-2 rounded-xl border border-slate-200 cursor-pointer min-h-[36px]"
                     >
                       Clear Filters
                     </button>
@@ -542,19 +633,20 @@ export const App: React.FC = () => {
                       🔍
                     </div>
                     <h3 className="text-base font-bold text-slate-900 mb-1">No deals match your search</h3>
-                    <p className="text-xs text-slate-500 mb-6">
+                    <p className="text-xs text-slate-500 mb-6 leading-relaxed">
                       Try searching with different keywords like "kurti", "shoes", "cotton", or clear filters to view all products.
                     </p>
                     <button
+                      type="button"
                       onClick={resetFilters}
-                      className="bg-slate-900 hover:bg-slate-800 text-amber-400 font-bold px-5 py-2.5 rounded-xl text-xs transition cursor-pointer"
+                      className="bg-slate-900 hover:bg-slate-800 text-amber-400 font-bold px-5 py-2.5 rounded-xl text-xs transition cursor-pointer min-h-[40px]"
                     >
                       Show All Deals
                     </button>
                   </div>
                 ) : (
                   /* Responsive Grid: 5-6 cards on Desktop, 3-4 on Tablet, 2 on Mobile */
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-5">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-4 md:gap-5">
                     {filteredAndSortedProducts.map(product => (
                       <ProductCard
                         key={product.id}
@@ -576,46 +668,54 @@ export const App: React.FC = () => {
       <Footer footerPages={data?.footer || []} />
 
       {/* 5. MOBILE BOTTOM NAVIGATION (Hidden on Desktop) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-3 py-1.5 flex items-center justify-around shadow-2xl">
+      <nav aria-label="Mobile Navigation" className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-3 py-1.5 flex items-center justify-around shadow-2xl">
         <button
+          type="button"
           onClick={() => {
             resetFilters();
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
-          className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg text-[10px] font-bold transition ${
+          className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg text-[10px] font-bold transition min-h-[44px] justify-center ${
             isHomeView ? 'text-amber-400' : 'text-slate-400 hover:text-white'
           }`}
+          aria-label="Home page"
         >
           <Home className="w-4 h-4" />
           <span>Home</span>
         </button>
 
         <button
+          type="button"
           onClick={() => {
             setSelectedCollection('TRENDING');
             window.scrollTo({ top: 350, behavior: 'smooth' });
           }}
-          className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg text-[10px] font-bold transition ${
+          className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg text-[10px] font-bold transition min-h-[44px] justify-center ${
             selectedCollection === 'TRENDING' ? 'text-amber-400' : 'text-slate-400 hover:text-white'
           }`}
+          aria-label="Trending deals"
         >
           <TrendingUp className="w-4 h-4" />
           <span>Trending</span>
         </button>
 
         <button
+          type="button"
           onClick={() => {
             window.scrollTo({ top: 120, behavior: 'smooth' });
           }}
-          className="flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg text-[10px] font-bold text-slate-400 hover:text-white transition"
+          className="flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg text-[10px] font-bold text-slate-400 hover:text-white transition min-h-[44px] justify-center"
+          aria-label="Categories"
         >
           <Grid className="w-4 h-4" />
           <span>Categories</span>
         </button>
 
         <button
+          type="button"
           onClick={() => setIsWishlistOpen(true)}
-          className="flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg text-[10px] font-bold relative text-slate-400 hover:text-white transition"
+          className="flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg text-[10px] font-bold relative text-slate-400 hover:text-white transition min-h-[44px] justify-center"
+          aria-label={`Wishlist (${wishlistIds.length})`}
         >
           <div className="relative">
             <Heart className={`w-4 h-4 ${wishlistIds.length > 0 ? 'text-rose-500 fill-rose-500' : ''}`} />

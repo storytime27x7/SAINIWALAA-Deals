@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ProductItem } from '../types';
 import { Star, Heart, ExternalLink, ShoppingBag } from 'lucide-react';
+import { trackMarketplaceClick, trackSelectItem } from '../services/analytics';
 
 interface ProductCardProps {
   product: ProductItem;
@@ -32,21 +33,36 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     }
   };
 
+  const hasMrp = product.MRP > product.PRICE;
+  const hasDiscount = product.DISCOUNT > 0;
+  const hasSavings = product.savingsAmount > 0;
+
+  const handleCardClick = () => {
+    trackSelectItem(product);
+    onOpenDetail();
+  };
+
+  const handleBuyClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    trackMarketplaceClick(product, 'product_card');
+  };
+
   return (
     <div
-      onClick={onOpenDetail}
-      className="group relative bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-xs hover:shadow-xl hover:border-amber-400/80 transition-all duration-300 flex flex-col justify-between cursor-pointer select-none h-full"
+      onClick={handleCardClick}
+      className="group relative bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-xs hover:shadow-xl hover:border-amber-400/80 transition-all duration-300 flex flex-col justify-between cursor-pointer select-none h-full focus-within:ring-2 focus-within:ring-amber-400"
     >
       {/* Top Media Container */}
-      <div>
+      <div className="w-full">
         <div className="relative aspect-square w-full bg-slate-50/80 overflow-hidden flex items-center justify-center p-2.5 sm:p-3">
           {product.IMAGE && !imgError ? (
             <img
               src={product.IMAGE}
-              alt={product.NAME}
+              alt={product.NAME || 'SAINIWALAA Deal Product'}
               onError={() => setImgError(true)}
               className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300 ease-out"
               loading="lazy"
+              decoding="async"
             />
           ) : (
             <div className="flex flex-col items-center justify-center text-slate-300">
@@ -69,15 +85,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             </span>
           )}
 
-          {/* Wishlist Button (Top Right) */}
+          {/* Wishlist Button (Top Right) - Min 44px touch target on mobile */}
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               onToggleWishlist();
             }}
-            aria-label="Save to Wishlist"
-            className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/95 backdrop-blur-xs flex items-center justify-center text-slate-400 hover:text-rose-600 hover:scale-110 active:scale-95 shadow-sm transition z-10 cursor-pointer"
+            aria-label={isWishlisted ? `Remove ${product.NAME} from wishlist` : `Add ${product.NAME} to wishlist`}
+            className="absolute top-1.5 right-1.5 w-10 h-10 sm:w-8 sm:h-8 rounded-full bg-white/95 backdrop-blur-xs flex items-center justify-center text-slate-400 hover:text-rose-600 hover:scale-110 active:scale-95 shadow-sm transition z-10 cursor-pointer focus-visible:ring-2 focus-visible:ring-amber-400 outline-none"
           >
             <Heart
               className={`w-4 h-4 transition-colors ${
@@ -91,10 +107,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         <div className="p-2.5 sm:p-3.5">
           {/* Rating & Badge Row */}
           <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
-            <div className="inline-flex items-center text-amber-500 text-[11px] font-bold">
-              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 mr-0.5" />
-              <span>{product.RATING > 0 ? product.RATING.toFixed(1) : '4.2'}</span>
-            </div>
+            {product.RATING > 0 && (
+              <div className="inline-flex items-center text-amber-500 text-[11px] font-bold">
+                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 mr-0.5" />
+                <span>{product.RATING.toFixed(1)}</span>
+              </div>
+            )}
 
             {product.BADGE && (
               <span className="bg-rose-50 text-rose-600 text-[9px] font-black px-1.5 py-0.2 rounded border border-rose-100 uppercase">
@@ -103,8 +121,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             )}
           </div>
 
-          {/* Product Name (2 lines) */}
-          <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 line-clamp-2 leading-snug group-hover:text-amber-600 transition-colors h-8 sm:h-9">
+          {/* Product Name (2 lines clamp) */}
+          <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 line-clamp-2 leading-snug group-hover:text-amber-600 transition-colors min-h-[2.25rem]">
             {product.NAME}
           </h3>
 
@@ -126,13 +144,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               {product.formattedPrice}
             </span>
 
-            {product.MRP > product.PRICE && (
+            {hasMrp && (
               <span className="text-[11px] text-slate-400 line-through">
                 {product.formattedMrp}
               </span>
             )}
 
-            {product.DISCOUNT > 0 && (
+            {hasDiscount && (
               <span className="text-[10px] sm:text-[11px] font-black text-emerald-600">
                 {product.DISCOUNT}% OFF
               </span>
@@ -140,7 +158,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </div>
 
           {/* Savings pill if available */}
-          {product.savingsAmount > 0 && (
+          {hasSavings && (
             <p className="text-[10px] font-bold text-emerald-700 mt-0.5 truncate">
               Save {product.formattedSavings}
             </p>
@@ -152,8 +170,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           href={product.LINK || '#'}
           target="_blank"
           rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="w-full bg-slate-900 hover:bg-amber-500 hover:text-slate-950 text-amber-400 font-extrabold py-2 px-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all duration-200 active:scale-98 shadow-xs cursor-pointer"
+          onClick={handleBuyClick}
+          aria-label={`Buy ${product.NAME} on ${product.marketplace}`}
+          className="w-full min-h-[38px] bg-slate-900 hover:bg-amber-500 hover:text-slate-950 text-amber-400 font-extrabold py-2 px-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all duration-200 active:scale-98 shadow-xs cursor-pointer focus-visible:ring-2 focus-visible:ring-amber-400 outline-none"
         >
           <span>Buy on {product.marketplace}</span>
           <ExternalLink className="w-3.5 h-3.5" />

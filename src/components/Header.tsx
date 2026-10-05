@@ -1,6 +1,7 @@
 import React from 'react';
-import { Search, ShoppingBag, Heart, RefreshCw, X, Flame, Sparkles, Menu, Tag, Percent, IndianRupee } from 'lucide-react';
+import { Search, ShoppingBag, Heart, RefreshCw, X, Flame, Menu } from 'lucide-react';
 import { CollectionFilter } from '../types';
+import { trackCategorySelect, trackSearch } from '../services/analytics';
 
 interface HeaderProps {
   searchQuery: string;
@@ -29,26 +30,36 @@ export const Header: React.FC<HeaderProps> = ({
   isRefreshing,
   onRefresh
 }) => {
-  const quickTags = ['kurti', 'shoes', 'cotton', 'under 500', 'amazon', 'meesho'];
+  const handleCategoryClick = (cat: string) => {
+    trackCategorySelect(cat);
+    onSelectCategory(cat);
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      trackSearch(searchQuery.trim());
+    }
+  };
 
   return (
     <header className="sticky top-0 z-40 bg-slate-900 border-b border-slate-800 shadow-md w-full">
       {/* 1. TOP ANNOUNCEMENT BAR */}
-      <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-rose-600 text-slate-950 px-4 py-1 text-xs font-bold w-full">
+      <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-rose-600 text-slate-950 px-3 sm:px-4 py-1 text-xs font-bold w-full">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2 truncate">
-            <span className="bg-slate-950 text-amber-400 text-[10px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
+            <span className="bg-slate-950 text-amber-400 text-[10px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider flex items-center gap-1 flex-shrink-0">
               <Flame className="w-3 h-3 fill-amber-400 text-amber-400" />
               <span>LIVE OFFERS</span>
             </span>
-            <span className="truncate">
-              Amazon, Flipkart & Meesho ke behtareen products aur verified deals ek jagah!
+            <span className="truncate text-[11px] sm:text-xs">
+              Amazon, Flipkart &amp; Meesho ke behtareen products aur verified deals ek jagah!
             </span>
           </div>
 
           <div className="hidden lg:flex items-center gap-4 text-[11px] text-slate-900 font-bold flex-shrink-0">
             <span>✓ 100% Verified Deals</span>
-            <span>✓ Direct Official Store Links</span>
+            <span>✓ Direct Store Links</span>
             <span>✓ Zero Extra Fees</span>
           </div>
         </div>
@@ -56,37 +67,51 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* 2. MAIN HEADER (BRAND + LARGE SEARCH + UTILITIES) */}
       <div className="w-full border-b border-slate-800/80">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3">
           <div className="flex items-center justify-between gap-3 md:gap-6">
             {/* Brand Logo & Name */}
             <div
-              className="flex items-center gap-3 flex-shrink-0 cursor-pointer select-none"
+              className="flex items-center gap-2.5 sm:gap-3 flex-shrink-0 cursor-pointer select-none"
               onClick={() => {
                 onSearchChange('');
                 onSelectCategory('All');
                 onSelectCollection('ALL');
               }}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  onSearchChange('');
+                  onSelectCategory('All');
+                  onSelectCollection('ALL');
+                }
+              }}
+              aria-label="SAINIWALAA Deals Home"
             >
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-400 flex items-center justify-center text-slate-950 shadow-md shadow-amber-500/20 border border-amber-300/40">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-400 flex items-center justify-center text-slate-950 shadow-md shadow-amber-500/20 border border-amber-300/40">
                 <ShoppingBag className="w-5 h-5" strokeWidth={2.5} />
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
-                  <span className="font-black text-lg md:text-xl tracking-wider text-white">
+                  <span className="font-black text-base sm:text-lg md:text-xl tracking-wider text-white">
                     SAINIWALAA
                   </span>
-                  <span className="bg-gradient-to-r from-amber-500 to-amber-400 text-slate-950 text-[11px] font-black px-1.5 py-0.5 rounded shadow-sm">
+                  <span className="bg-gradient-to-r from-amber-500 to-amber-400 text-slate-950 text-[10px] sm:text-[11px] font-black px-1.5 py-0.5 rounded shadow-sm">
                     DEALS
                   </span>
                 </div>
-                <p className="text-[11px] font-medium text-amber-200/90 -mt-0.5 hidden sm:block">
+                <p className="text-[10px] sm:text-[11px] font-medium text-amber-200/90 -mt-0.5 hidden sm:block">
                   Best Deals, Smart Shopping
                 </p>
               </div>
             </div>
 
             {/* Large Ecommerce Search Bar (Desktop & Tablet) */}
-            <div className="hidden md:flex flex-1 max-w-3xl mx-2">
+            <form
+              onSubmit={handleSearchSubmit}
+              className="hidden md:flex flex-1 max-w-2xl lg:max-w-3xl mx-2"
+              role="search"
+            >
               <div className="relative w-full flex items-center">
                 <div className="relative flex-1">
                   <input
@@ -94,37 +119,43 @@ export const Header: React.FC<HeaderProps> = ({
                     value={searchQuery}
                     onChange={e => onSearchChange(e.target.value)}
                     placeholder="Search deals across Amazon, Flipkart, Meesho... (e.g. kurti, shoes, under 500)"
+                    aria-label="Search deals across Amazon, Flipkart and Meesho"
                     className="w-full bg-slate-800/90 text-white placeholder-slate-400 pl-10 pr-9 py-2.5 rounded-l-xl border border-r-0 border-slate-700 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 text-sm transition-all shadow-inner"
                   />
-                  <Search className="w-4 h-4 text-amber-400 absolute left-3.5 top-3.5" />
+                  <Search className="w-4 h-4 text-amber-400 absolute left-3.5 top-3.5" aria-hidden="true" />
                   {searchQuery && (
                     <button
+                      type="button"
                       onClick={() => onSearchChange('')}
-                      className="absolute right-3 top-3 text-slate-400 hover:text-white"
+                      className="absolute right-2.5 top-2.5 w-6 h-6 flex items-center justify-center text-slate-400 hover:text-white rounded-full hover:bg-slate-700 transition"
                       title="Clear search"
+                      aria-label="Clear search text"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   )}
                 </div>
                 <button
-                  type="button"
-                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-5 py-2.5 rounded-r-xl text-sm flex items-center gap-1.5 transition border border-amber-400 flex-shrink-0 cursor-pointer"
+                  type="submit"
+                  aria-label="Submit search"
+                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 lg:px-5 py-2.5 rounded-r-xl text-sm flex items-center gap-1.5 transition border border-amber-400 flex-shrink-0 cursor-pointer"
                 >
                   <Search className="w-4 h-4" />
                   <span>Search</span>
                 </button>
               </div>
-            </div>
+            </form>
 
             {/* Right Action Utilities */}
             <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
               {/* Refresh Button */}
               <button
+                type="button"
                 onClick={onRefresh}
                 disabled={isRefreshing}
                 title="Refresh deals from Google Sheet"
-                className="flex items-center gap-1.5 px-3 py-2 text-slate-300 hover:text-white bg-slate-800/60 hover:bg-slate-800 rounded-xl border border-slate-700/60 transition text-xs font-semibold cursor-pointer"
+                aria-label="Sync Deals"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 text-slate-300 hover:text-white bg-slate-800/60 hover:bg-slate-800 rounded-xl border border-slate-700/60 transition text-xs font-semibold cursor-pointer min-h-[38px]"
               >
                 <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-amber-400' : ''}`} />
                 <span className="hidden xl:inline">Sync Deals</span>
@@ -132,9 +163,11 @@ export const Header: React.FC<HeaderProps> = ({
 
               {/* Wishlist Button */}
               <button
+                type="button"
                 onClick={onOpenWishlist}
-                className="flex items-center gap-2 px-3 py-2 text-slate-200 hover:text-white bg-slate-800/80 hover:bg-slate-800 rounded-xl border border-slate-700/70 transition shadow-xs cursor-pointer"
+                className="flex items-center gap-2 px-2.5 sm:px-3 py-2 text-slate-200 hover:text-white bg-slate-800/80 hover:bg-slate-800 rounded-xl border border-slate-700/70 transition shadow-xs cursor-pointer min-h-[38px]"
                 title="Saved Wishlist"
+                aria-label={`Wishlist (${wishlistCount})`}
               >
                 <div className="relative">
                   <Heart className={`w-4 h-4 sm:w-5 sm:h-5 ${wishlistCount > 0 ? 'text-rose-500 fill-rose-500' : 'text-slate-300'}`} />
@@ -153,36 +186,44 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* Mobile Search Bar (Full width underneath on mobile screens) */}
-          <div className="mt-2.5 md:hidden relative">
+          <form
+            onSubmit={handleSearchSubmit}
+            className="mt-2.5 md:hidden relative"
+            role="search"
+          >
             <input
               type="text"
               value={searchQuery}
               onChange={e => onSearchChange(e.target.value)}
               placeholder="Search kurti, shoes, cotton, under 500..."
-              className="w-full bg-slate-800/90 text-white placeholder-slate-400 pl-9 pr-8 py-2 rounded-xl border border-slate-700 focus:outline-none focus:border-amber-400 text-xs shadow-inner"
+              aria-label="Search deals"
+              className="w-full bg-slate-800/90 text-white placeholder-slate-400 pl-9 pr-9 py-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-amber-400 text-xs shadow-inner"
             />
-            <Search className="w-4 h-4 text-amber-400 absolute left-3 top-2.5" />
+            <Search className="w-4 h-4 text-amber-400 absolute left-3 top-3" aria-hidden="true" />
             {searchQuery && (
               <button
+                type="button"
                 onClick={() => onSearchChange('')}
-                className="absolute right-2.5 top-2.5 text-slate-400 hover:text-white"
+                className="absolute right-2.5 top-2.5 w-6 h-6 flex items-center justify-center text-slate-400 hover:text-white rounded-full"
+                aria-label="Clear search"
               >
                 <X className="w-4 h-4" />
               </button>
             )}
-          </div>
+          </form>
         </div>
       </div>
 
       {/* 3. SECONDARY NAVIGATION BAR (DESKTOP & MOBILE CATEGORIES + QUICK FILTERS) */}
       <div className="w-full bg-slate-950/80 backdrop-blur-xs border-b border-slate-800/60">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-2">
-          <div className="flex items-center justify-between gap-3 overflow-x-auto no-scrollbar">
+          <div className="flex items-center justify-between gap-3 overflow-x-auto no-scrollbar pr-4">
             {/* Left: Category Navigation Pills */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
               <button
-                onClick={() => onSelectCategory('All')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition flex-shrink-0 cursor-pointer ${
+                type="button"
+                onClick={() => handleCategoryClick('All')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition flex-shrink-0 cursor-pointer min-h-[32px] ${
                   selectedCategory === 'All'
                     ? 'bg-amber-500 text-slate-950 shadow-sm'
                     : 'text-slate-300 hover:text-white hover:bg-slate-800'
@@ -194,14 +235,15 @@ export const Header: React.FC<HeaderProps> = ({
 
               {categories
                 .filter(c => c !== 'All')
-                .slice(0, 8)
+                .slice(0, 10)
                 .map(cat => {
                   const isSelected = cat.toLowerCase() === selectedCategory.toLowerCase();
                   return (
                     <button
+                      type="button"
                       key={cat}
-                      onClick={() => onSelectCategory(cat)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex-shrink-0 cursor-pointer ${
+                      onClick={() => handleCategoryClick(cat)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex-shrink-0 cursor-pointer min-h-[32px] ${
                         isSelected
                           ? 'bg-slate-800 text-amber-400 font-bold border border-amber-500/50'
                           : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
@@ -216,18 +258,19 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Right: Quick Deal Presets (Desktop & Tablet) */}
             <div className="hidden lg:flex items-center gap-1.5 flex-shrink-0 border-l border-slate-800 pl-3">
               {[
-                { key: 'ALL' as CollectionFilter, label: 'All Deals', icon: null },
-                { key: 'TRENDING' as CollectionFilter, label: '🔥 Trending', icon: null },
-                { key: 'BEST_DISCOUNTS' as CollectionFilter, label: '🏷️ 40%+ Off', icon: null },
-                { key: 'TOP_PICKS' as CollectionFilter, label: '⭐ Top Picks', icon: null },
-                { key: 'UNDER_500' as CollectionFilter, label: '💰 Under ₹500', icon: null },
+                { key: 'ALL' as CollectionFilter, label: 'All Deals' },
+                { key: 'TRENDING' as CollectionFilter, label: '🔥 Trending' },
+                { key: 'BEST_DISCOUNTS' as CollectionFilter, label: '🏷️ 40%+ Off' },
+                { key: 'TOP_PICKS' as CollectionFilter, label: '⭐ Top Picks' },
+                { key: 'UNDER_500' as CollectionFilter, label: '💰 Under ₹500' },
               ].map(item => {
                 const isSelected = selectedCollection === item.key;
                 return (
                   <button
+                    type="button"
                     key={item.key}
                     onClick={() => onSelectCollection(item.key)}
-                    className={`px-2.5 py-1 rounded-md text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                    className={`px-2.5 py-1 rounded-md text-xs font-bold transition whitespace-nowrap cursor-pointer min-h-[28px] ${
                       isSelected
                         ? 'bg-amber-400 text-slate-950 shadow-xs'
                         : 'text-amber-300/80 hover:text-amber-300 hover:bg-slate-800'

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Marketplace } from '../types';
-import { Store, Check } from 'lucide-react';
+import { Store } from 'lucide-react';
+import { trackMarketplaceFilter } from '../services/analytics';
 
 interface MarketplaceTabsProps {
   selectedMarketplace: Marketplace | 'All';
@@ -21,6 +22,11 @@ export const MarketplaceTabs: React.FC<MarketplaceTabsProps> = ({
     { key: 'Ajio', label: 'Ajio Trends', badgeColor: 'bg-[#2C4152]', activeBorder: 'border-slate-500' }
   ];
 
+  const handleTabClick = (key: Marketplace | 'All') => {
+    trackMarketplaceFilter(key);
+    onSelectMarketplace(key);
+  };
+
   return (
     <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 my-3">
       <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200/80 shadow-xs flex items-center justify-between gap-3 overflow-x-auto no-scrollbar">
@@ -33,23 +39,24 @@ export const MarketplaceTabs: React.FC<MarketplaceTabsProps> = ({
           </span>
         </div>
 
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-nowrap overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-nowrap overflow-x-auto no-scrollbar pr-4">
           {tabs.map(tab => {
             const isSelected = selectedMarketplace === tab.key;
             const count = counts?.[tab.key];
 
             return (
               <button
+                type="button"
                 key={tab.key}
-                onClick={() => onSelectMarketplace(tab.key)}
-                className={`flex items-center gap-1.5 py-1.5 px-3 sm:px-4 rounded-xl border text-xs font-bold transition flex-shrink-0 whitespace-nowrap cursor-pointer ${
+                onClick={() => handleTabClick(tab.key)}
+                className={`flex items-center gap-1.5 py-1.5 px-3 sm:px-4 rounded-xl border text-xs font-bold transition flex-shrink-0 whitespace-nowrap cursor-pointer min-h-[36px] ${
                   isSelected
                     ? `bg-slate-900 text-white ${tab.activeBorder} shadow-xs scale-102`
                     : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
                 }`}
               >
                 {tab.key !== 'All' && (
-                  <span className={`w-2.5 h-2.5 rounded-full ${tab.badgeColor}`} />
+                  <span className={`w-2.5 h-2.5 rounded-full ${tab.badgeColor} flex-shrink-0`} />
                 )}
                 <span>{tab.label}</span>
                 {count !== undefined && count > 0 && (
