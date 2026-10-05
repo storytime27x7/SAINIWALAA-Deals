@@ -16,6 +16,12 @@ import {
   saveBrowsingState,
   getSavedBrowsingState
 } from './services/urlState';
+import {
+  generateProductSeo,
+  generateCategorySeo,
+  generateHomeSeo,
+  applySeoToDom
+} from './services/seo';
 import { Header } from './components/Header';
 import { HeroSlider } from './components/HeroSlider';
 import { MarketplaceTabs } from './components/MarketplaceTabs';
@@ -135,6 +141,20 @@ export const App: React.FC = () => {
       document.title = title;
     }
   }, [selectedProduct, searchQuery, selectedCategory, selectedMarketplace, selectedCollection]);
+
+  // Dynamic SEO Synchronization (Page Title, Meta Description, Keywords, Canonical, Open Graph, Schema.org JSON-LD)
+  useEffect(() => {
+    if (selectedProduct) {
+      const seo = generateProductSeo(selectedProduct);
+      applySeoToDom(seo);
+    } else if (selectedCategory && selectedCategory !== 'All') {
+      const seo = generateCategorySeo(selectedCategory, data?.products || []);
+      applySeoToDom(seo);
+    } else {
+      const seo = generateHomeSeo(data?.products || []);
+      applySeoToDom(seo);
+    }
+  }, [selectedProduct, selectedCategory, data?.products]);
 
   // GA4 Debounced Search Query Tracking
   useEffect(() => {
@@ -660,13 +680,12 @@ export const App: React.FC = () => {
                         ).length || 0;
 
                         return (
-                          <div
+                          <a
+                            href={`/?category=${encodeURIComponent(cat)}`}
                             key={cat}
-                            onClick={() => handleCategoryDiscoveryClick(cat)}
-                            role="button"
-                            tabIndex={0}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') handleCategoryDiscoveryClick(cat);
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleCategoryDiscoveryClick(cat);
                             }}
                             className="p-3 sm:p-4 rounded-2xl border border-slate-200 hover:border-amber-400 bg-slate-50 hover:bg-amber-50/50 transition cursor-pointer group text-center flex flex-col items-center justify-center min-h-[100px] focus-visible:ring-2 focus-visible:ring-amber-400 outline-none"
                             aria-label={`Category ${cat}, ${count} deals`}
@@ -680,7 +699,7 @@ export const App: React.FC = () => {
                             <span className="text-[10px] text-slate-400 mt-0.5">
                               {count} deals
                             </span>
-                          </div>
+                          </a>
                         );
                       })}
                   </div>

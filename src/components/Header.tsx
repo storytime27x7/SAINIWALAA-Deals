@@ -220,9 +220,12 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center justify-between gap-3 overflow-x-auto no-scrollbar pr-4">
             {/* Left: Category Navigation Pills */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => handleCategoryClick('All')}
+              <a
+                href="/"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleCategoryClick('All');
+                }}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition flex-shrink-0 cursor-pointer min-h-[32px] ${
                   selectedCategory === 'All'
                     ? 'bg-amber-500 text-slate-950 shadow-sm'
@@ -231,7 +234,7 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <Menu className="w-3.5 h-3.5" />
                 <span>All Categories</span>
-              </button>
+              </a>
 
               {categories
                 .filter(c => c !== 'All')
@@ -239,18 +242,21 @@ export const Header: React.FC<HeaderProps> = ({
                 .map(cat => {
                   const isSelected = cat.toLowerCase() === selectedCategory.toLowerCase();
                   return (
-                    <button
-                      type="button"
+                    <a
+                      href={`/?category=${encodeURIComponent(cat)}`}
                       key={cat}
-                      onClick={() => handleCategoryClick(cat)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex-shrink-0 cursor-pointer min-h-[32px] ${
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleCategoryClick(cat);
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex-shrink-0 cursor-pointer min-h-[32px] flex items-center ${
                         isSelected
                           ? 'bg-slate-800 text-amber-400 font-bold border border-amber-500/50'
                           : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                       }`}
                     >
                       {cat}
-                    </button>
+                    </a>
                   );
                 })}
             </div>

@@ -58,7 +58,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           {product.IMAGE && !imgError ? (
             <img
               src={product.IMAGE}
-              alt={product.NAME || 'SAINIWALAA Deal Product'}
+              alt={`${product.NAME} on ${product.marketplace} - Buy Online on SAINIWALAA Deals`}
               onError={() => setImgError(true)}
               className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300 ease-out"
               loading="lazy"
@@ -122,9 +122,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </div>
 
           {/* Product Name (2 lines clamp) */}
-          <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 line-clamp-2 leading-snug group-hover:text-amber-600 transition-colors min-h-[2.25rem]">
-            {product.NAME}
-          </h3>
+          <a
+            href={`/?product=${encodeURIComponent(product.id)}`}
+            onClick={(e) => {
+              e.preventDefault();
+              handleCardClick();
+            }}
+            className="block text-xs sm:text-[13px] font-bold text-slate-900 line-clamp-2 leading-snug hover:text-amber-600 transition-colors min-h-[2.25rem] focus:outline-none"
+          >
+            <h3>{product.NAME}</h3>
+          </a>
 
           {/* Category tag */}
           {product.categories.length > 0 && (

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ProductItem } from '../types';
 import { X, ExternalLink, Heart, Star, Share2, ShoppingBag, ShieldCheck, Check, Sparkles } from 'lucide-react';
 import { trackMarketplaceClick, trackViewItem } from '../services/analytics';
+import { extractProductKeywords } from '../services/seo';
 
 interface ProductModalProps {
   product: ProductItem | null;
@@ -41,6 +42,9 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   }, [product, onClose]);
 
   if (!product) return null;
+
+  const keywords = extractProductKeywords(product);
+  const primaryCategory = product.categories[0] || product.CATEGORY || 'Deals';
 
   const handleShare = async () => {
     const productUrl = `${window.location.origin}/?product=${encodeURIComponent(product.id)}`;
@@ -139,7 +143,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             {product.IMAGE && !imgError ? (
               <img
                 src={product.IMAGE}
-                alt={product.NAME || 'Deal Image'}
+                alt={`${product.NAME} on ${product.marketplace} - Buy Online on SAINIWALAA Deals`}
                 onError={() => setImgError(true)}
                 className="max-h-72 w-full object-contain drop-shadow-sm"
               />
@@ -165,6 +169,15 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           {/* Right Details Container */}
           <div className="p-5 sm:p-6 flex flex-col justify-between max-h-[75vh] overflow-y-auto">
             <div>
+              {/* Breadcrumb for SEO and Navigation */}
+              <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-[11px] text-slate-400 mb-2 truncate">
+                <a href="/" onClick={(e) => { e.preventDefault(); onClose(); }} className="hover:text-slate-800 underline">
+                  Home
+                </a>
+                <span>/</span>
+                <span className="text-slate-600 font-medium truncate">{primaryCategory}</span>
+              </nav>
+
               {/* Rating and Badge */}
               <div className="flex items-center gap-2 mb-2 flex-wrap">
                 {product.RATING > 0 && (
@@ -181,10 +194,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 )}
               </div>
 
-              {/* Title */}
-              <h2 id="product-modal-title" className="text-base sm:text-lg font-black text-slate-950 leading-snug">
+              {/* Title (Semantic H1 for Product Page) */}
+              <h1 id="product-modal-title" className="text-base sm:text-lg font-black text-slate-950 leading-snug">
                 {product.NAME}
-              </h2>
+              </h1>
 
               {/* Pricing Box */}
               <div className="my-3.5 p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80">
@@ -251,6 +264,25 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <p className="text-xs text-slate-500 leading-relaxed">
                     {product.KEYWORDS}
                   </p>
+                </div>
+              )}
+
+              {/* Dynamic Natural Shopping Keywords derived from product */}
+              {keywords.shoppingIntentPhrases.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                    Search Intent
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {keywords.shoppingIntentPhrases.slice(0, 3).map(tag => (
+                      <span
+                        key={tag}
+                        className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-medium"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

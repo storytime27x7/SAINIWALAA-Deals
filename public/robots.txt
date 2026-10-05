@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Sitemap declaration
+Sitemap: https://sainiwalaa-deals-27762.web.app/sitemap.xml
