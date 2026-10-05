@@ -491,40 +491,73 @@ export function applySeoToDom(seo: SeoMetadata) {
 /**
  * Generates sitemap.xml dynamically from real products and categories.
  * Excludes query URLs like ?search=, ?store=, ?collection=.
+ * Guarantees zero double-encoding and zero duplicate URLs.
  */
 export function generateSitemapXml(products: ProductItem[], categories: string[]): string {
   const today = new Date().toISOString().split('T')[0];
 
+  const seenUrls = new Set<string>();
+  const urlEntries: { loc: string; lastmod: string; changefreq: string; priority: string }[] = [];
+
+  const addUrl = (loc: string, changefreq: string, priority: string) => {
+    if (!seenUrls.has(loc)) {
+      seenUrls.add(loc);
+      urlEntries.push({ loc, lastmod: today, changefreq, priority });
+    }
+  };
+
+  // 1. Homepage
+  addUrl(`${SITE_BASE_URL}/`, 'daily', '1.0');
+
+  // 2. Real Supported Categories (Deduplicated)
+  const categoryMap = new Map<string, string>();
+  categories.forEach(cat => {
+    if (cat && cat !== 'All' && cat !== 'All Deals') {
+      const key = cat.trim().toLowerCase();
+      if (!categoryMap.has(key)) {
+        categoryMap.set(key, cat.trim());
+      }
+    }
+  });
+
+  Array.from(categoryMap.values()).sort().forEach(cat => {
+    let rawCat = cat;
+    try {
+      while (rawCat.includes('%')) {
+        const d = decodeURIComponent(rawCat);
+        if (d === rawCat) break;
+        rawCat = d;
+      }
+    } catch {}
+    addUrl(`${SITE_BASE_URL}/?category=${encodeURIComponent(rawCat)}`, 'daily', '0.8');
+  });
+
+  // 3. Real Indexable Products (Encoded strictly once, no double encoding)
+  products
+    .filter(p => p.SHOW && p.NAME && p.NAME.trim())
+    .forEach((p, idx) => {
+      const row = p._ROW || idx + 1;
+      let rawName = p.NAME.trim().slice(0, 20);
+      try {
+        while (rawName.includes('%')) {
+          const d = decodeURIComponent(rawName);
+          if (d === rawName) break;
+          rawName = d;
+        }
+      } catch {}
+      const rawId = `deal_${row}_${rawName}`;
+      addUrl(`${SITE_BASE_URL}/?product=${encodeURIComponent(rawId)}`, 'weekly', '0.7');
+    });
+
   let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
   xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
 
-  // 1. Homepage
-  xml += `  <url>\n`;
-  xml += `    <loc>${SITE_BASE_URL}/</loc>\n`;
-  xml += `    <lastmod>${today}</lastmod>\n`;
-  xml += `    <changefreq>daily</changefreq>\n`;
-  xml += `    <priority>1.0</priority>\n`;
-  xml += `  </url>\n`;
-
-  // 2. Real Categories
-  categories
-    .filter(c => c && c !== 'All')
-    .forEach(cat => {
-      xml += `  <url>\n`;
-      xml += `    <loc>${SITE_BASE_URL}/?category=${encodeURIComponent(cat)}</loc>\n`;
-      xml += `    <lastmod>${today}</lastmod>\n`;
-      xml += `    <changefreq>daily</changefreq>\n`;
-      xml += `    <priority>0.8</priority>\n`;
-      xml += `  </url>\n`;
-    });
-
-  // 3. Real Indexable Products
-  products.forEach(p => {
+  urlEntries.forEach(entry => {
     xml += `  <url>\n`;
-    xml += `    <loc>${SITE_BASE_URL}/?product=${encodeURIComponent(p.id)}</loc>\n`;
-    xml += `    <lastmod>${today}</lastmod>\n`;
-    xml += `    <changefreq>weekly</changefreq>\n`;
-    xml += `    <priority>0.7</priority>\n`;
+    xml += `    <loc>${entry.loc}</loc>\n`;
+    xml += `    <lastmod>${entry.lastmod}</lastmod>\n`;
+    xml += `    <changefreq>${entry.changefreq}</changefreq>\n`;
+    xml += `    <priority>${entry.priority}</priority>\n`;
     xml += `  </url>\n`;
   });
 

@@ -150,7 +150,18 @@ export function buildQueryString(options: {
   const params = new URLSearchParams();
 
   if (options.productId) {
-    params.set('product', options.productId);
+    // Decode any pre-encoded percent sequences so URLSearchParams encodes cleanly exactly once
+    let cleanId = options.productId;
+    try {
+      while (cleanId.includes('%')) {
+        const decoded = decodeURIComponent(cleanId);
+        if (decoded === cleanId) break;
+        cleanId = decoded;
+      }
+    } catch {
+      // Keep as-is if decoding fails
+    }
+    params.set('product', cleanId);
   }
   if (options.search && options.search.trim()) {
     params.set('search', options.search.trim());
@@ -176,12 +187,48 @@ export function findProductById(products: ProductItem[], targetId: string | null
   if (!targetId || !products || products.length === 0) return null;
 
   const normalizedTarget = targetId.trim();
-  const decodedTarget = decodeURIComponent(normalizedTarget);
 
-  return (
-    products.find(p => p.id === normalizedTarget || p.id === decodedTarget) ||
-    products.find(p => decodeURIComponent(p.id) === decodedTarget) ||
-    products.find(p => p.NAME.toLowerCase() === decodedTarget.toLowerCase()) ||
-    null
+  // 1. Single decode
+  let decodedTarget = normalizedTarget;
+  try {
+    decodedTarget = decodeURIComponent(normalizedTarget);
+  } catch {}
+
+  // 2. Fully decode in case of legacy double-encoded parameters (%2520 -> %20 -> space)
+  let fullyDecoded = decodedTarget;
+  try {
+    while (fullyDecoded.includes('%')) {
+      const d = decodeURIComponent(fullyDecoded);
+      if (d === fullyDecoded) break;
+      fullyDecoded = d;
+    }
+  } catch {}
+
+  // Direct match on ID
+  const directMatch = products.find(p =>
+    p.id === normalizedTarget ||
+    p.id === decodedTarget ||
+    p.id === fullyDecoded ||
+    decodeURIComponent(p.id) === decodedTarget ||
+    decodeURIComponent(p.id) === fullyDecoded
   );
+  if (directMatch) return directMatch;
+
+  // Row index match (e.g. deal_7_... or deal_7)
+  const rowMatch = normalizedTarget.match(/^deal_(\d+)/i);
+  if (rowMatch) {
+    const row = parseInt(rowMatch[1], 10);
+    const byRow = products.find(p => p._ROW === row);
+    if (byRow) return byRow;
+  }
+
+  // Name or slug match
+  const targetLower = fullyDecoded.toLowerCase();
+  const byName = products.find(p => {
+    const pName = p.NAME.toLowerCase();
+    return pName === targetLower || pName.includes(targetLower.replace(/^deal_\d+_?/, ''));
+  });
+  if (byName) return byName;
+
+  return null;
 }
